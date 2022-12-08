@@ -321,201 +321,20 @@ proc setTokenRawFromStart(self: Lexer, start: int) =
   if self.wantsRaw:
     self.token.raw = self.stringRange(start)
 
-# proc scanNumber(
-#   self: Lexer,
-#   start: int,
-#   negative = false,
-# ) =
-#   self.token.kind = tNumber
-#   self.setTokenRawFromStart(start)
-#   self.token.value = TokenValue(
-#     kind: tvString,
-#     string: self.stringRange(start),
-#   )
-
-proc toDigit(c: char): Option[uint8] =
-  case c
-  of '0'..'9':
-    result = some(c.uint8 - 48)
-  of 'A'..'Z':
-    result = some(c.uint8 - 55)
-  of 'a'..'z':
-    result = some(c.uint8 - 87)
-  else:
-    result = uint8.none
-
-type Base = enum
-  bBin
-  bOct
-  bDec
-  bHex
-
-proc allowsDigit(base: Base, digit: uint8): bool =
-  case base
-  of bBin: result = digit < 2
-  of bOct: result = digit < 8
-  of bDec: result = digit < 10
-  of bHex: result = digit < 16
-
-proc parseInt(base: Base, s: string): int =
-  case base
-  of bBin: result = s.parseBinInt
-  of bOct: result = s.parseOctInt
-  of bDec: result = s.parseInt
-  of bHex: result = s.parseHexInt
-
 proc scanNumber(
   self: Lexer,
   start: int,
   negative = false,
 ) =
-  self.token.kind = tNumber
-  var
-    base = bDec
-    numberSize, suffixSize = 0
-    isDecimal, isENotation, hasUnderscores, lastIsUnderscore = false
-    posAfterPrefix = start
-
-  if self.currentChar == '0':
-    case self.nextChar
-    of 'b': base = bBin
-    of 'o': base = bOct
-    of 'x': base = bHex
-    else:
-      # TODO: backport to Crystal
-      var c = self.currentChar
-      if c == '_':
-        c = self.nextChar
-        hasUnderscores = true
-        lastIsUnderscore = true
-      if c.isDigit:
-        self.`raise`(
-          "octal constants should be prefixed with 0o",
-          self.token,
-          self.currentPos - start,
-        )
-
-    if base != bDec:
-      discard self.nextChar
-      posAfterPrefix = self.currentPos
-      if self.currentChar == '_':
-        self.`raise`(
-          "unexpected '_' in number",
-          self.token,
-          self.currentPos - start,
-        )
-
-      let
-        digit = self.currentChar.toDigit
-        isValidDigit = not digit.isNone and base.allowsDigit(digit.get)
-      if not isValidDigit:
-        self.`raise`(
-          "numeric literal without digits",
-          self.token,
-          self.currentPos - start,
-        )
-
-  while true:
-    while true:
-      let
-        digit = self.currentChar.toDigit
-        isValidDigit = not digit.isNone and base.allowsDigit(digit.get)
-      if not isValidDigit:
-        break
-
-      let isLeadingZero = numberSize == 0 and self.currentChar == '0'
-      if not isLeadingZero:
-        numberSize += 1
-      discard self.nextChar
-      lastIsUnderscore = false
-
-    case self.currentChar
-    of '_':
-      if lastIsUnderscore:
-        self.`raise`(
-          "consecutive underscores in numbers aren't allowed",
-          self.token,
-          self.currentPos - start,
-        )
-      hasUnderscores = true
-      lastIsUnderscore = true
-    of '.':
-      if lastIsUnderscore:
-        self.`raise`(
-          "unexpected '_' in number",
-          self.token,
-          self.currentPos - start,
-        )
-      if isDecimal or base != bDec or not self.peekNextChar.isDigit:
-        break
-      isDecimal = true
-    of 'e', 'E':
-      lastIsUnderscore = false
-      if isENotation or base != bDec:
-        break
-      isENotation = true
-      isDecimal = true
-      if self.peekNextChar in {'+', '-'}:
-        discard self.nextChar
-      if self.peekNextChar == '_':
-        self.`raise`(
-          "unexpected '_' in number",
-          self.token,
-          self.currentPos - start,
-        )
-      if not self.peekNextChar.isDigit:
-        break
-    of 'i', 'u', 'f':
-      let beforeSuffixPos = self.currentPos
-      # self.token.numberKind = self.consumeNumberSuffix
-      discard self.nextChar
-      suffixSize = self.currentPos - beforeSuffixPos
-      if lastIsUnderscore:
-        suffixSize += 1
-      break
-    else:
-      if lastIsUnderscore:
-        self.`raise`(
-          "trailing '_' in number",
-          self.token,
-          self.currentPos - start,
-        )
-      break
-
+  # TODO: implement
+  while self.currentChar.isDigit:
     discard self.nextChar
-
+  self.token.kind = tNumber
   self.setTokenRawFromStart(start)
-
-  let posBeforeSuffix = self.currentPos - suffixSize
-  var rawNumberString = self.stringRange(posAfterPrefix, posBeforeSuffix)
-  if base == bDec:
-    if hasUnderscores:
-      rawNumberString = rawNumberString.split('_').join
-  else:
-    var base10NumberString = $base.parseInt(rawNumberString)
-    numberSize = base10NumberString.len
-    let firstChar = self.string[start]
-    if firstChar in {'+', '-'}:
-      base10NumberString = fmt"{firstChar}{base10NumberString}"
-    rawNumberString = base10NumberString
-  
   self.token.value = TokenValue(
     kind: tvString,
-    string: rawNumberString,
+    string: self.stringRange(start),
   )
-
-  if isDecimal:
-    if suffixSize == 0:
-      self.token.numberKind = nkF64
-    if not self.token.numberKind.isFloat:
-      self.`raise`(
-        fmt"Invalid suffix {self.token.numberKind} for decimal number",
-        self.token,
-        self.currentPos - start,
-      )
-    return
-
-  # TODO: Check or determine suffix
 
 proc newTokenCase(
   self: NimNode,
