@@ -5,10 +5,10 @@ import std/macros, std/strformat, std/strutils, std/tables
 type Lexer* = ref object of RootObj
   docEnabled, commentsEnabled, countWhitespace, wantsRaw, slashIsRegex, wantsDefOrMacroName: bool
   string: string
-  currentPos: int
+  currentPos*: int
   token*, tempToken: Token
   lineNumber, columnNumber: int
-  wantsSymbol, wantsRegex, commentIsDoc: bool
+  wantsSymbol, wantsRegex*, commentIsDoc: bool
   filename, stackedFilename: string
   privateTokenEndLocation: Option[Location]
   # stringPool
@@ -22,7 +22,7 @@ type Lexer* = ref object of RootObj
   stacked: bool
   stackedLineNumber, stackedColumnNumber: int
 
-method nextToken(self: Lexer) {.base.}
+method nextToken*(self: Lexer) {.base.}
 
 proc initLexer*(
   self: Lexer,
@@ -121,25 +121,25 @@ proc incrLineNumber(self: Lexer, columnNumber = 1.some) =
     if columnNumber.isSome:
       self.stackedColumnNumber = columnNumber.get
 
-proc currentChar(self: Lexer): char =
+proc currentChar*(self: Lexer): char =
   if self.currentPos < self.string.len:
     result = self.string[self.currentPos]
   else:
     result = '\0'
 
-proc peekNextChar(self: Lexer): char =
+proc peekNextChar*(self: Lexer): char =
   let nextPos = self.currentPos + 1
   if nextPos < self.string.len:
     result = self.string[nextPos]
   else:
     result = '\0'
 
-proc nextCharNoColumnIncrement(self: Lexer): char =
+proc nextCharNoColumnIncrement*(self: Lexer): char =
   if self.currentPos < self.string.len:
     self.currentPos += 1
   result = self.currentChar
 
-proc nextChar(self: Lexer): char =
+proc nextChar*(self: Lexer): char =
   self.incrColumnNumber
   result = self.nextCharNoColumnIncrement
 
@@ -266,7 +266,7 @@ proc setTokenRawFromStart(self: Lexer, start: int) =
   if self.wantsRaw:
     self.token.raw = self.stringRange(start)
 
-proc tokenEndLocation(self: Lexer): Location =
+proc tokenEndLocation*(self: Lexer): Location =
   if self.privateTokenEndLocation.isNone:
     self.privateTokenEndLocation = newLocation(
       self.filename,
@@ -1215,4 +1215,4 @@ if isMainModule:
   assertLexes("@@foo", tClassVar)
   assertLexes("$foo", tGlobal)
   assertLexes("$123", tGlobalMatchDataIndex)
-  assertLexes("'z'", tChar)
+  assertLexes("'e'", tChar)

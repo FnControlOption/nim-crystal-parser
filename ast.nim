@@ -453,11 +453,17 @@ method location*(self: ASTNode): Option[Location] {.base.} =
 method `location=`*(self: ASTNode, location: Option[Location]) {.base.} =
   self.privateLocation = location
 
+method `location=`*(self: ASTNode, location: Location) {.base.} =
+  self.privateLocation = location.some
+
 method endLocation*(self: ASTNode): Option[Location] {.base.} =
   self.privateEndLocation
 
 method `endLocation=`*(self: ASTNode, endLocation: Option[Location]) {.base.} =
   self.privateEndLocation = endLocation
+
+method `endLocation=`*(self: ASTNode, endLocation: Location) {.base.} =
+  self.privateEndLocation = endLocation.some
 
 proc at*[T](self: T, location: Option[Location]): T =
   self.location = location
@@ -519,7 +525,8 @@ proc singleExpression*(self: ASTNode): ASTNode =
 
 # Nop
 
-proc newNop*: Nop = Nop()
+proc newNop*: Nop =
+  Nop()
 
 # Expressions
 
@@ -576,7 +583,8 @@ method isSingleExpression*(self: Expressions): Option[ASTNode] =
 
 # NilLiteral
 
-proc newNilLiteral*: NilLiteral = NilLiteral()
+proc newNilLiteral*: NilLiteral =
+  NilLiteral()
 
 # BoolLiteral
 
@@ -590,23 +598,31 @@ proc isFloat*(self: NumberKind): bool =
 
 # NumberLiteral
 
-# proc newNumberLiteral*: NumberLiteral = NumberLiteral()
+proc newNumberLiteral*(
+  value: string,
+  kind: NumberKind,
+): NumberLiteral =
+  NumberLiteral(value: value, kind: kind)
 
 # CharLiteral
 
-# proc newCharLiteral*: CharLiteral = CharLiteral()
+proc newCharLiteral*(value: char): CharLiteral =
+  CharLiteral(value: value)
 
 # StringLiteral
 
-# proc newStringLiteral*: StringLiteral = StringLiteral()
+# proc newStringLiteral*: StringLiteral =
+#   StringLiteral()
 
 # StringInterpolation
 
-# proc newStringInterpolation*: StringInterpolation = StringInterpolation()
+# proc newStringInterpolation*: StringInterpolation =
+#   StringInterpolation()
 
 # SymbolLiteral
 
-# proc newSymbolLiteral*: SymbolLiteral = SymbolLiteral()
+# proc newSymbolLiteral*: SymbolLiteral =
+#   SymbolLiteral()
 
 # ArrayLiteral
 
@@ -621,7 +637,8 @@ proc newArrayLiteral(
 
 # HashLiteral
 
-# proc newHashLiteral*: HashLiteral = HashLiteral()
+# proc newHashLiteral*: HashLiteral =
+#   HashLiteral()
 
 # HashEntry
 
@@ -629,7 +646,8 @@ proc newArrayLiteral(
 
 # NamedTupleLiteral
 
-# proc newNamedTupleLiteral*: NamedTupleLiteral = NamedTupleLiteral()
+# proc newNamedTupleLiteral*: NamedTupleLiteral =
+#   NamedTupleLiteral()
 
 # NamedTupleEntry
 
@@ -637,30 +655,35 @@ proc newArrayLiteral(
 
 # RangeLiteral
 
-# proc newRangeLiteral*: RangeLiteral = RangeLiteral()
+# proc newRangeLiteral*: RangeLiteral =
+#   RangeLiteral()
 
 # RegexLiteral
 
-# proc newRegexLiteral*: RegexLiteral = RegexLiteral()
+# proc newRegexLiteral*: RegexLiteral =
+#   RegexLiteral()
 
 # TupleLiteral
 
-# proc newTupleLiteral*: TupleLiteral = TupleLiteral()
+# proc newTupleLiteral*: TupleLiteral =
+#   TupleLiteral()
 
 # Var
 
-# proc newVar*: Var = Var()
+proc newVar*(name: string): Var =
+  Var(name: name)
 
 # Block
 
-# proc newBlock*: Block = Block()
+# proc newBlock*: Block =
+#   Block()
 
 # Call
 
 proc newCall*(
   obj: Option[ASTNode],
   name: string,
-  args: seq[ASTNode] = @[],
+  args: seq[ASTNode],
   `block` = Block.none,
   blockArg = ASTNode.none,
   namedArgs = seq[NamedArgument].none,
@@ -694,43 +717,53 @@ proc globalCall*(
 
 # NamedArgument
 
-# proc newNamedArgument*: NamedArgument = NamedArgument()
+# proc newNamedArgument*: NamedArgument =
+#   NamedArgument()
 
 # If
 
-# proc newIf*: If = If()
+# proc newIf*: If =
+#   If()
 
 # Unless
 
-# proc newUnless*: Unless = Unless()
+# proc newUnless*: Unless =
+#   Unless()
 
 # Assign
 
-# proc newAssign*: Assign = Assign()
+# proc newAssign*: Assign =
+#   Assign()
 
 # OpAssign
 
-# proc newOpAssign*: OpAssign = OpAssign()
+# proc newOpAssign*: OpAssign =
+#   OpAssign()
 
 # MultiAssign
 
-# proc newMultiAssign*: MultiAssign = MultiAssign()
+# proc newMultiAssign*: MultiAssign =
+#   MultiAssign()
 
 # InstanceVar
 
-# proc newInstanceVar*: InstanceVar = InstanceVar()
+# proc newInstanceVar*: InstanceVar =
+#   InstanceVar()
 
 # ReadInstanceVar
 
-# proc newReadInstanceVar*: ReadInstanceVar = ReadInstanceVar()
+# proc newReadInstanceVar*: ReadInstanceVar =
+#   ReadInstanceVar()
 
 # ClassVar
 
-# proc newClassVar*: ClassVar = ClassVar()
+# proc newClassVar*: ClassVar =
+#   ClassVar()
 
 # Global
 
-# proc newGlobal*: Global = Global()
+# proc newGlobal*: Global =
+#   Global()
 
 # And
 
@@ -744,11 +777,13 @@ proc newOr*(left, right: ASTNode): Or =
 
 # Arg
 
-# proc newArg*: Arg = Arg()
+# proc newArg*: Arg =
+#   Arg()
 
 # ProcNotation
 
-# proc newProcNotation*: ProcNotation = ProcNotation()
+# proc newProcNotation*: ProcNotation =
+#   ProcNotation()
 
 # Def
 
@@ -834,31 +869,38 @@ proc newOut*(exp: ASTNode): Out =
 
 # OffsetOf
 
-# proc newOffsetOf*: OffsetOf = OffsetOf()
+# proc newOffsetOf*: OffsetOf =
+#   OffsetOf()
 
 # VisibilityModifier
 
-# proc newVisibilityModifier*: VisibilityModifier = VisibilityModifier()
+# proc newVisibilityModifier*: VisibilityModifier =
+#   VisibilityModifier()
 
 # IsA
 
-# proc newIsA*: IsA = IsA()
+# proc newIsA*: IsA =
+#   IsA()
 
 # RespondsTo
 
-# proc newRespondsTo*: RespondsTo = RespondsTo()
+# proc newRespondsTo*: RespondsTo =
+#   RespondsTo()
 
 # Require
 
-# proc newRequire*: Require = Require()
+# proc newRequire*: Require =
+#   Require()
 
 # When
 
-# proc newWhen*: When = When()
+# proc newWhen*: When =
+#   When()
 
 # Case
 
-# proc newCase*: Case = Case()
+# proc newCase*: Case =
+#   Case()
 
 # SelectWhen
 
@@ -866,71 +908,88 @@ proc newOut*(exp: ASTNode): Out =
 
 # Select
 
-# proc newSelect*: Select = Select()
+# proc newSelect*: Select =
+#   Select()
 
 # ImplicitObj
 
-# proc newImplicitObj*: ImplicitObj = ImplicitObj()
+# proc newImplicitObj*: ImplicitObj =
+#   ImplicitObj()
 
 # Path
 
-# proc newPath*: Path = Path()
+# proc newPath*: Path =
+#   Path()
 
 # ClassDef
 
-# proc newClassDef*: ClassDef = ClassDef()
+# proc newClassDef*: ClassDef =
+#   ClassDef()
 
 # ModuleDef
 
-# proc newModuleDef*: ModuleDef = ModuleDef()
+# proc newModuleDef*: ModuleDef =
+#   ModuleDef()
 
 # AnnotationDef
 
-# proc newAnnotationDef*: AnnotationDef = AnnotationDef()
+# proc newAnnotationDef*: AnnotationDef =
+#   AnnotationDef()
 
 # While
 
-# proc newWhile*: While = While()
+# proc newWhile*: While =
+#   While()
 
 # Until
 
-# proc newUntil*: Until = Until()
+# proc newUntil*: Until =
+#   Until()
 
 # Generic
 
-# proc newGeneric*: Generic = Generic()
+# proc newGeneric*: Generic =
+#   Generic()
 
 # TypeDeclaration
 
-# proc newTypeDeclaration*: TypeDeclaration = TypeDeclaration()
+# proc newTypeDeclaration*: TypeDeclaration =
+#   TypeDeclaration()
 
 # UninitializedVar
 
-# proc newUninitializedVar*: UninitializedVar = UninitializedVar()
+# proc newUninitializedVar*: UninitializedVar =
+#   UninitializedVar()
 
 # Rescue
 
-# proc newRescue*: Rescue = Rescue()
+# proc newRescue*: Rescue =
+#   Rescue()
 
 # ExceptionHandler
 
-# proc newExceptionHandler*: ExceptionHandler = ExceptionHandler()
+# proc newExceptionHandler*: ExceptionHandler =
+#   ExceptionHandler()
 
 # ProcLiteral
 
-# proc newProcLiteral*: ProcLiteral = ProcLiteral()
+# proc newProcLiteral*: ProcLiteral =
+#   ProcLiteral()
 
 # ProcPointer
 
-# proc newProcPointer*: ProcPointer = ProcPointer()
+# proc newProcPointer*: ProcPointer =
+#   ProcPointer()
 
 # Union
 
-# proc newUnion*: Union = Union()
+# proc newUnion*: Union =
+#   Union()
 
 # Self
 
-# proc newSelf*: Self = Self()
+# proc newSelf*: Self =
+#   Self()
 
 # Return
 
@@ -949,71 +1008,88 @@ proc newNext*(exp = ASTNode.none): Next =
 
 # Yield
 
-# proc newYield*: Yield = Yield()
+# proc newYield*: Yield =
+#   Yield()
 
 # Include
 
-# proc newInclude*: Include = Include()
+# proc newInclude*: Include =
+#   Include()
 
 # Extend
 
-# proc newExtend*: Extend = Extend()
+# proc newExtend*: Extend =
+#   Extend()
 
 # LibDef
 
-# proc newLibDef*: LibDef = LibDef()
+# proc newLibDef*: LibDef =
+#   LibDef()
 
 # FunDef
 
-# proc newFunDef*: FunDef = FunDef()
+# proc newFunDef*: FunDef =
+#   FunDef()
 
 # TypeDef
 
-# proc newTypeDef*: TypeDef = TypeDef()
+# proc newTypeDef*: TypeDef =
+#   TypeDef()
 
 # CStructOrUnionDef
 
-# proc newCStructOrUnionDef*: CStructOrUnionDef = CStructOrUnionDef()
+# proc newCStructOrUnionDef*: CStructOrUnionDef =
+#   CStructOrUnionDef()
 
 # EnumDef
 
-# proc newEnumDef*: EnumDef = EnumDef()
+# proc newEnumDef*: EnumDef =
+#   EnumDef()
 
 # ExternalVar
 
-# proc newExternalVar*: ExternalVar = ExternalVar()
+# proc newExternalVar*: ExternalVar =
+#   ExternalVar()
 
 # Alias
 
-# proc newAlias*: Alias = Alias()
+# proc newAlias*: Alias =
+#   Alias()
 
 # Metaclass
 
-# proc newMetaclass*: Metaclass = Metaclass()
+# proc newMetaclass*: Metaclass =
+#   Metaclass()
 
 # Cast
 
-# proc newCast*: Cast = Cast()
+# proc newCast*: Cast =
+#   Cast()
 
 # NilableCast
 
-# proc newNilableCast*: NilableCast = NilableCast()
+# proc newNilableCast*: NilableCast =
+#   NilableCast()
 
 # TypeOf
 
-# proc newTypeOf*: TypeOf = TypeOf()
+# proc newTypeOf*: TypeOf =
+#   TypeOf()
 
 # Annotation
 
-# proc newAnnotation*: Annotation = Annotation()
+# proc newAnnotation*: Annotation =
+#   Annotation()
 
 # MacroExpression
 
-# proc newMacroExpression*: MacroExpression = MacroExpression()
+# proc newMacroExpression*: MacroExpression =
+#   MacroExpression()
 
 # MacroLiteral
 
-# proc newMacroLiteral*: MacroLiteral = MacroLiteral()
+# proc newMacroLiteral*: MacroLiteral =
+#   MacroLiteral()
 
 # MacroVerbatim
 
@@ -1022,19 +1098,23 @@ proc newMacroVerbatim*(exp: ASTNode): MacroVerbatim =
 
 # MacroIf
 
-# proc newMacroIf*: MacroIf = MacroIf()
+# proc newMacroIf*: MacroIf =
+#   MacroIf()
 
 # MacroFor
 
-# proc newMacroFor*: MacroFor = MacroFor()
+# proc newMacroFor*: MacroFor =
+#   MacroFor()
 
 # MacroVar
 
-# proc newMacroVar*: MacroVar = MacroVar()
+# proc newMacroVar*: MacroVar =
+#   MacroVar()
 
 # Underscore
 
-# proc newUnderscore*: Underscore = Underscore()
+# proc newUnderscore*: Underscore =
+#   Underscore()
 
 # Splat
 

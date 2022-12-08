@@ -380,6 +380,9 @@ proc newToken*(): Token =
     invalidEscape: false,
   )
 
+proc doc*(self: Token): Option[string] =
+  self.docBuffer
+
 proc location*(self: var Token): Location =
   if self.privateLocation.isNone:
     self.privateLocation = newLocation(
@@ -392,12 +395,18 @@ proc location*(self: var Token): Location =
 proc `location=`*(self: var Token, location: Option[Location]) =
   self.privateLocation = location
 
+proc `$`*(self: TokenValue): string =
+  case self.kind
+  of tvChar: result = $self.char
+  of tvString: result = self.string
+  of tvKeyword: result = $self.keyword
+  of tvNone: result = ""
+
 proc `$`*(self: Token): string =
-  case self.value.kind
-  of tvChar: $self.value.char
-  of tvString: self.value.string
-  of tvKeyword: $self.value.keyword
-  of tvNone: $self.kind
+  if self.value.kind == tvNone:
+    result = $self.kind
+  else:
+    result = $self.value
 
 if isMainModule:
   assert $tMagicLine == "__LINE__"
