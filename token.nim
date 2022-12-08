@@ -210,11 +210,11 @@ type
     privateLocation: Option[Location]
 
   MacroState* = object
-    whitespace: bool
-    nest, controlNest: int
-    delimiterState: Option[DelimiterState]
-    beginningOfLine, yields, comment: bool
-    heredocs: Option[seq[DelimiterState]]
+    whitespace*: bool
+    nest*, controlNest*: int
+    delimiterState*: Option[DelimiterState]
+    beginningOfLine*, yields*, comment*: bool
+    heredocs*: Option[seq[DelimiterState]]
 
   DelimiterKind* = enum
     dkString
@@ -225,11 +225,11 @@ type
     dkHeredoc
 
   DelimiterState* = object
-    case kind: DelimiterKind
-    of dkHeredoc: heredocId: string
-    else: nestChar, endChar: char
-    openCount, heredocIndent: int
-    allowEscapes: bool
+    case kind*: DelimiterKind
+    of dkHeredoc: heredocId*: string
+    else: nestChar*, endChar*: char
+    openCount*, heredocIndent*: int
+    allowEscapes*: bool
 
 proc toUnderscore(self: string): string =
   self.replacef(re"([A-Z])", "_$1")
@@ -347,6 +347,23 @@ proc defaultDelimiterState*(): DelimiterState =
     heredocIndent: 0,
     allowEscapes: true,
   )
+
+proc newDelimiterState*(
+  kind: DelimiterKind,
+  nest, `end`: char,
+  allowEscapes = true,
+): DelimiterState =
+  case kind
+  of dkHeredoc: assert false
+  else:
+    result = DelimiterState(
+      kind: kind,
+      nestChar: nest,
+      endChar: `end`,
+      openCount: 0,
+      heredocIndent: 0,
+      allowEscapes: allowEscapes,
+    )
 
 proc newToken*(): Token =
   Token(

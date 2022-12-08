@@ -3,4 +3,5 @@
 /lexer
 /location
 /macros
+/parser
 /token

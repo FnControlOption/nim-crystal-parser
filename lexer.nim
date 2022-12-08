@@ -6,7 +6,7 @@ type Lexer* = ref object of RootObj
   docEnabled, commentsEnabled, countWhitespace, wantsRaw, slashIsRegex, wantsDefOrMacroName: bool
   string: string
   currentPos: int
-  token, tempToken: Token
+  token*, tempToken: Token
   lineNumber, columnNumber: int
   wantsSymbol, wantsRegex, commentIsDoc: bool
   filename, stackedFilename: string
@@ -22,39 +22,44 @@ type Lexer* = ref object of RootObj
   stacked: bool
   stackedLineNumber, stackedColumnNumber: int
 
-proc newLexer*(
-  string: string,
+method nextToken(self: Lexer) {.base.}
+
+proc initLexer*(
+  self: Lexer,
+  s: string,
   # stringPool
   # warnings
-): Lexer =
-  Lexer(
-    # warnings
-    string: string,
-    currentPos: 0,
-    token: newToken(),
-    tempToken: newToken(),
-    lineNumber: 1,
-    columnNumber: 1,
-    filename: "",
-    wantsRegex: true,
-    docEnabled: false,
-    commentIsDoc: true,
-    commentsEnabled: false,
-    countWhitespace: false,
-    slashIsRegex: true,
-    wantsRaw: false,
-    wantsDefOrMacroName: false,
-    wantsSymbol: true,
-    # stringPool
+) =
+  # warnings
+  self.string = s
+  self.currentPos = 0
+  self.token = newToken()
+  self.tempToken = newToken()
+  self.lineNumber = 1
+  self.columnNumber = 1
+  self.filename = ""
+  self.wantsRegex = true
+  self.docEnabled = false
+  self.commentIsDoc = true
+  self.commentsEnabled = false
+  self.countWhitespace = false
+  self.slashIsRegex = true
+  self.wantsRaw = false
+  self.wantsDefOrMacroName = false
+  self.wantsSymbol = true
+  # stringPool
 
-    delimiterStateStack: @[],
-    macroCurlyCount: 0,
+  self.delimiterStateStack = @[]
+  self.macroCurlyCount = 0
 
-    stacked: false,
-    stackedFilename: "",
-    stackedLineNumber: 1,
-    stackedColumnNumber: 1,
-  )
+  self.stacked = false
+  self.stackedFilename = ""
+  self.stackedLineNumber = 1
+  self.stackedColumnNumber = 1
+
+proc newLexer*(s: string): Lexer =
+  new(result)
+  result.initLexer(s)
 
 proc `filename=`*(self: Lexer, filename: string) =
   self.filename = filename
@@ -63,27 +68,29 @@ proc `raise`(
   self: Lexer,
   message: string,
   lineNumber = self.lineNumber,
-  columNumber = self.columnNumber,
+  columnNumber = self.columnNumber,
   filename = self.filename,
 ) {.noReturn.} =
-  let e = newException(SyntaxError, message)
-  e.lineNumber = lineNumber
-  e.columnNumber = columNumber
-  e.filename = filename
-  raise e
+  raise (ref SyntaxError)(
+    msg: message,
+    lineNumber: lineNumber,
+    columnNumber: columnNumber,
+    filename: filename,
+  )
 
-proc `raise`(
+proc `raise`*(
   self: Lexer,
   message: string,
   token: Token,
   size = int.none,
 ) {.noReturn.} =
-  let e = newException(SyntaxError, message)
-  e.lineNumber = token.lineNumber
-  e.columnNumber = token.columnNumber
-  e.filename = token.filename
-  e.size = size
-  raise e
+  raise (ref SyntaxError)(
+    msg: message,
+    lineNumber: token.lineNumber,
+    columnNumber: token.columnNumber,
+    filename: token.filename,
+    size: size,
+  )
 
 proc `raise`(
   self: Lexer,
@@ -99,17 +106,6 @@ proc `raise`(
   location: Location,
 ) {.noReturn.} =
   self.`raise` message, location.lineNumber, location.columnNumber, location.filename
-
-proc resetToken(self: Lexer) =
-  self.token.value = TokenValue(kind: tvNone)
-  self.token.lineNumber = self.lineNumber
-  self.token.columnNumber = self.columnNumber
-  self.token.filename = self.filename
-  self.token.location = Location.none
-  self.token.passedBackslashNewline = false
-  if self.token.kind != tSpace and self.token.kind != tNewline:
-    self.token.docBuffer = string.none
-  self.privateTokenEndLocation = Location.none
 
 proc incrColumnNumber(self: Lexer, d = 1) =
   self.columnNumber += d
@@ -158,6 +154,17 @@ proc nextChar(self: Lexer, tokenKind: TokenKind) =
   discard self.nextChar
   self.token.kind = tokenKind
 
+proc resetToken(self: Lexer) =
+  self.token.value = TokenValue(kind: tvNone)
+  self.token.lineNumber = self.lineNumber
+  self.token.columnNumber = self.columnNumber
+  self.token.filename = self.filename
+  self.token.location = Location.none
+  self.token.passedBackslashNewline = false
+  if self.token.kind != tSpace and self.token.kind != tNewline:
+    self.token.docBuffer = string.none
+  self.privateTokenEndLocation = Location.none
+
 proc stringRange(self: Lexer, startPos, endPos: int): string =
   result = self.string[startPos ..< endPos]
 
@@ -186,9 +193,78 @@ proc peekNotIdentPartOrEndNextChar(self: Lexer): bool =
   else:
     result = false
 
+proc closingChar(c: char): char =
+  case c
+  of '<': result = '>'
+  of '(': result = ')'
+  of '[': result = ']'
+  of '{': result = '}'
+  else: result = c
+
+proc closingChar(self: Lexer): char =
+  self.currentChar.closingChar
+
+proc skipSpace(self: Lexer) =
+  while self.token.kind == tSpace:
+    self.nextToken
+
+proc skipSpaceOrNewline(self: Lexer) =
+  while self.token.kind == tSpace or
+      self.token.kind == tNewline:
+    self.nextToken
+
+proc skipStatementEnd(self: Lexer) =
+  while self.token.kind == tSpace or
+      self.token.kind == tNewline or
+      self.token.kind == tOpSemicolon:
+    self.nextToken
+
+proc nextTokenSkipSpace*(self: Lexer) =
+  self.nextToken
+  self.skipSpace
+
+proc nextTokenSkipSpaceOrNewlin*(self: Lexer) =
+  self.nextToken
+  self.skipSpaceOrNewline
+
+proc nextTokenSkipStatementEnd*(self: Lexer) =
+  self.nextToken
+  self.skipStatementEnd
+
+proc nextTokenNeverASymbol*(self: Lexer) =
+  self.wantsSymbol = false
+  self.nextToken
+  self.wantsSymbol = true
+
+proc handleCrlfOrLf(self: Lexer): bool =
+  result = self.currentChar == '\r'
+  if result:
+    if self.nextChar != '\n':
+      self.`raise` "expecting '\\n' after '\\r'"
+
+proc charSequence(
+  self: Lexer,
+  tokens: varargs[char],
+  columnIncrement: bool,
+): bool =
+  for token in tokens:
+    if token != (
+      if columnIncrement: self.nextChar
+      else: self.nextCharNoColumnIncrement
+    ):
+      return false
+  result = true
+
+proc charSequence(self: Lexer, tokens: varargs[char]): bool =
+  self.charSequence(tokens, columnIncrement = true)
+
 proc unknownToken(self: Lexer) {.noReturn.} =
   let escaped = self.currentChar.`$`.escape("'", "'")
   self.`raise` fmt"unknown token: {escaped}"
+
+proc setTokenRawFromStart(self: Lexer, start: int) =
+  if self.wantsRaw:
+    self.token.raw = self.stringRange(start)
 
 proc tokenEndLocation(self: Lexer): Location =
   if self.privateTokenEndLocation.isNone:
@@ -232,12 +308,6 @@ proc consumeDoc(self: Lexer) =
     self.token.docBuffer = docBuffer.some
 
   docBuffer.add self.stringRange(startPos)
-
-proc handleCrlfOrLf(self: Lexer): bool =
-  result = self.currentChar == '\r'
-  if result:
-    if self.nextChar != '\n':
-      self.`raise` "expecting '\\n' after '\\r'"
 
 proc consumeWhitespace(self: Lexer) =
   let startPos = self.currentPos
@@ -296,30 +366,11 @@ proc scanIdent(self: Lexer, start: int) =
     string: self.stringRange(start),
   )
 
-proc checkIdentOrKeyword(
-  self: Lexer,
-  keyword: Keyword,
-  start: int,
-) =
-  if self.peekNextChar.isIdentPartOrEnd:
-    self.scanIdent(start)
-  else:
-    discard self.nextChar
-    self.token.kind = tIdent
-    self.token.value = TokenValue(
-      kind: tvKeyword,
-      keyword: keyword,
-    )
-
 proc symbol(self: Lexer, value: string) =
   self.token.kind = tSymbol
   self.token.value = TokenValue(kind: tvString, string: value)
   if self.wantsRaw:
     self.token.raw = fmt":{value}"
-
-proc setTokenRawFromStart(self: Lexer, start: int) =
-  if self.wantsRaw:
-    self.token.raw = self.stringRange(start)
 
 proc scanNumber(
   self: Lexer,
@@ -336,17 +387,55 @@ proc scanNumber(
     string: self.stringRange(start),
   )
 
+proc delimitedPair(
+  self: Lexer,
+  kind: DelimiterKind,
+  stringNest, stringEnd: char,
+  start: int,
+  allowEscapes, advance = true,
+) =
+  if advance:
+    discard self.nextChar
+  self.token.kind = tDelimiterStart
+  self.token.delimiterState = newDelimiterState(
+    kind,
+    stringNest,
+    stringEnd,
+    allowEscapes,
+  )
+  self.setTokenRawFromStart(start)
+
+proc consumeVariable(
+  self: Lexer,
+  tokenKind: TokenKind,
+  start: int,
+) =
+  if self.currentChar.isIdentStart:
+    while self.nextChar.isIdentPart:
+      discard
+    self.token.kind = tokenKind
+    self.token.value = TokenValue(
+      kind: tvString,
+      string: self.stringRange(start),
+    )
+  else:
+    self.unknownToken
+
 proc newTokenCase(
-  self: NimNode,
-  index: int,
-  tokenKind: NimNode,
+  self, kind, start: NimNode,
+  onTokenFound: proc (self, kind, start: NimNode): NimNode,
+  onTokenMissing: proc (self, start: NimNode): NimNode,
   leaves: seq[NimNode],
+  index: int,
 ): NimNode =
   if leaves.len == 0:
-    assert not tokenKind.isNil;
-    return quote do: `self`.nextChar `tokenKind`
+    assert not kind.isNil
+    let n = onTokenFound(self, kind, start)
+    return quote do:
+      discard `self`.nextChar
+      `n`
 
-  type Branch = tuple[tokenKind: NimNode, leaves: seq[NimNode]]
+  type Branch = tuple[kind: NimNode, leaves: seq[NimNode]]
   var branches = initTable[char, Branch]()
 
   for leaf in leaves:
@@ -358,8 +447,8 @@ proc newTokenCase(
       branches[ch] = (nil, @[])
 
     if raw.len == index + 1:
-      assert branches[ch].tokenKind.isNil
-      branches[ch] = (leaf[1], branches[ch][1])
+      assert branches[ch].kind.isNil, fmt"duplicate '{raw}'"
+      branches[ch].kind = leaf[1]
     else:
       branches[ch].leaves.add leaf
 
@@ -378,45 +467,105 @@ proc newTokenCase(
       branchStmt.add:
         newTokenCase(
           self,
-          index + 1,
-          branch.tokenKind,
+          branch.kind,
+          start,
+          onTokenFound,
+          onTokenMissing,
           branch.leaves,
+          index + 1,
         )
 
   result.add:
     newNimNode(nnkElse).add:
-      if tokenKind.isNil:
-        quote do: `self`.unknownToken
+      if kind.isNil:
+        onTokenMissing(self, start)
       else:
-        quote do: `self`.token.kind = `tokenKind`
+        onTokenFound(self, kind, start)
 
-macro genTokenCase(
+macro genCheckOp(
   self: Lexer,
   index: int,
   root: (string, TokenKind),
   leaves: varargs[(string, TokenKind)],
 ) =
+  let index = cast[int](index.intVal)
+  assert root[0].strVal.len == index
   for leaf in leaves:
     assert leaf[0].strVal.startsWith(root[0].strVal)
-  let
-    index = cast[int](index.intVal)
-    tokenKind = root[1]
-    leaves = leaves[0 .. ^1]
-  newTokenCase(self, index, tokenKind, leaves)
 
-proc advanceToken(self: Lexer) =
+  proc onTokenFound(self, tokenKind, _: NimNode): NimNode =
+    quote do: `self`.token.kind = `tokenKind`
+
+  proc onTokenMissing(self, _: NimNode): NimNode =
+    quote do: `self`.unknownToken
+
+  newTokenCase(
+    self,
+    root[1],
+    nil,
+    onTokenFound,
+    onTokenMissing,
+    leaves[0 .. ^1],
+    index,
+  )
+
+macro genCheckIdentOrKeyword(
+  self: Lexer,
+  start: int,
+  leaves: varargs[(string, Keyword)],
+) =
+  proc onTokenFound(self, keyword, start: NimNode): NimNode =
+    quote do:
+      if `self`.currentChar.isIdentPartOrEnd:
+        `self`.scanIdent(`start`)
+      else:
+        `self`.token.kind = tIdent
+        `self`.token.value = TokenValue(
+          kind: tvKeyword,
+          keyword: `keyword`,
+        )
+
+  proc onTokenMissing(self, start: NimNode): NimNode =
+    quote do: `self`.scanIdent(`start`)
+
+  newTokenCase(
+    self,
+    nil,
+    start,
+    onTokenFound,
+    onTokenMissing,
+    leaves[0 .. ^1],
+    index = 1,
+  )
+
+method nextToken(self: Lexer) =
+  # Check previous token:
   if self.token.kind == tNewline or self.token.kind == tEof:
+    # 1) After a newline or at the start of the stream (:EOF), a following comment can be a doc comment
     self.commentIsDoc = true
   elif self.token.kind != tSpace:
+    # 2) Any non-space token prevents a following comment from being a doc
+    # comment.
     self.commentIsDoc = false
 
   self.resetToken
 
-  # TODO: Skip comments
+  # Skip comments
+  while self.currentChar == '#':
+    let start = self.currentPos
+
+    # TODO: Check #<loc:...> pragma comment
+    if self.docEnabled and self.commentIsDoc:
+      self.consumeDoc
+    elif self.commentsEnabled:
+      self.consumeComment(start)
+      return
+    else:
+      self.skipComment
 
   var start = self.currentPos
 
-  # macroExpansionPragmas
+  # TODO: implement macroExpansionPragmas
 
   var resetRegexFlags = true
 
@@ -452,7 +601,7 @@ proc advanceToken(self: Lexer) =
     else:
       self.`raise` "expected '\\n' after '\\r'"
   of '=':
-    self.genTokenCase(
+    self.genCheckOp(
       index = 1,
       ("=", tOpEq),
       ("=>", tOpEqGt),
@@ -461,7 +610,7 @@ proc advanceToken(self: Lexer) =
       ("===", tOpEqEqEq),
     )
   of '!':
-    self.genTokenCase(
+    self.genCheckOp(
       index = 1,
       ("!", tOpBang),
       ("!=", tOpBangEq),
@@ -470,7 +619,7 @@ proc advanceToken(self: Lexer) =
   of '<':
     case self.nextChar
     of '=':
-      self.genTokenCase(
+      self.genCheckOp(
         index = 2,
         ("<=", tOpLtEq),
         ("<=>", tOpLtEqGt),
@@ -487,7 +636,7 @@ proc advanceToken(self: Lexer) =
     else:
       self.token.kind = tOpLt
   of '>':
-    self.genTokenCase(
+    self.genCheckOp(
       index = 1,
       (">", tOpGt),
       (">=", tOpGtEq),
@@ -519,18 +668,99 @@ proc advanceToken(self: Lexer) =
     else:
       self.token.kind = tOpMinus
   of '*':
-    self.genTokenCase(
+    self.genCheckOp(
       index = 1,
       ("*", tOpStar),
       ("*=", tOpStarEq),
       ("**", tOpStarStar),
       ("**=", tOpStarStarEq),
     )
-  # TODO
+  of '/':
+    let c = self.nextChar
+    if (self.wantsDefOrMacroName or not self.slashIsRegex) and c == '/':
+      self.genCheckOp(
+        index = 2,
+        ("//", tOpSlashSlash),
+        ("//=", tOpSlashSlashEq),
+      )
+    elif not self.slashIsRegex and c == '=':
+      self.nextChar tOpSlashEq
+    elif self.wantsDefOrMacroName:
+      self.token.kind = tOpSlash
+    elif self.slashIsRegex:
+      self.delimitedPair dkRegex, '/', '/', start, advance = false
+    elif c.isSpaceAscii or c == '\0':
+      self.token.kind = tOpSlash
+    elif self.wantsRegex:
+      self.delimitedPair dkRegex, '/', '/', start, advance = false
+    else:
+      self.token.kind = tOpSlash
+  of '%':
+    if self.wantsDefOrMacroName:
+      self.nextChar tOpPercent
+    else:
+      case self.nextChar
+      of '=':
+        self.nextChar tOpPercentEq
+      of '(', '[', '{', '<', '|':
+        let c = self.currentChar
+        self.delimitedPair dkString, c, c.closingChar, start
+      of 'i':
+        case self.peekNextChar
+        of '(', '{', '[', '<', '|':
+          let c = self.nextChar
+          self.nextChar tSymbolArrayStart
+          if self.wantsRaw:
+            self.token.raw = fmt"%i{c}"
+          self.token.delimiterState = newDelimiterState(dkSymbolArray, c, c.closingChar)
+        else:
+          self.token.kind = tOpPercent
+      of 'q':
+        case self.peekNextChar
+        of '(', '{', '[', '<', '|':
+          let c = self.nextChar
+          self.delimitedPair dkString, c, c.closingChar, start, allowEscapes = false
+        else:
+          self.token.kind = tOpPercent
+      of 'Q':
+        case self.peekNextChar
+        of '(', '{', '[', '<', '|':
+          let c = self.nextChar
+          self.delimitedPair dkString, c, c.closingChar, start
+        else:
+          self.token.kind = tOpPercent
+      of 'r':
+        case self.nextChar
+        of '(', '{', '[', '<', '|':
+          let c = self.currentChar
+          self.delimitedPair dkString, c, c.closingChar, start
+        else:
+          self.`raise` "unknown %r char"
+      of 'x':
+        case self.nextChar
+        of '(', '{', '[', '<', '|':
+          let c = self.currentChar
+          self.delimitedPair dkCommand, c, c.closingChar, start
+        else:
+          self.`raise` "unknown %x char"
+      of 'w':
+        case self.peekNextChar
+        of '(', '{', '[', '<', '|':
+          let c = self.nextChar
+          self.nextChar tStringArrayStart
+          if self.wantsRaw:
+            self.token.raw = fmt"%w{c}"
+          self.token.delimiterState = newDelimiterState(dkStringArray, c, c.closingChar)
+        else:
+          self.token.kind = tOpPercent
+      of '}':
+        self.nextChar tOpPercentRcurly
+      else:
+        self.token.kind = tOpPercent
   of '(': self.nextChar tOpLparen
   of ')': self.nextChar tOpRParen
   of '{':
-    self.genTokenCase(
+    self.genCheckOp(
       index = 1,
       ("{", tOpLcurly),
       ("{%", tOpLcurlyPercent),
@@ -538,7 +768,7 @@ proc advanceToken(self: Lexer) =
     )
   of '}': self.nextChar tOpRcurly
   of '[':
-    self.genTokenCase(
+    self.genCheckOp(
       index = 1,
       ("[", tOpLsquare),
       ("[]", tOpLsquareRsquare),
@@ -551,13 +781,347 @@ proc advanceToken(self: Lexer) =
   of ';':
     resetRegexFlags = false
     self.nextChar tOpSemicolon
-  # TODO
+  of ':':
+    if self.nextChar == ':':
+      self.nextChar tOpColonColon
+    elif self.wantsSymbol:
+      # TODO: implement consumeSymbol
+      self.unknownToken
+    else:
+      self.token.kind = tOpColon
   of '~':
     self.nextChar tOpTilde
-  # TODO
+  of '.':
+    let
+      line = self.lineNumber
+      column = self.columnNumber
+    case self.nextChar
+    of '.':
+      case self.nextChar
+      of '.':
+        self.nextChar tOpPeriodPeriodPeriod
+      else:
+        self.token.kind = tOpPeriodPeriod
+    else:
+      if self.currentChar.isDigit:
+        self.`raise` ".1 style number literal is not supported, put 0 before dot", line, column
+      self.token.kind = tOpPeriod
+  of '&':
+    case self.nextChar
+    of '&':
+      self.genCheckOp(
+        index = 2,
+        ("&&", tOpAmpAmp),
+        ("&&=", tOpAmpAmpEq),
+      )
+    of '=':
+      self.nextChar tOpAmpEq
+    of '+':
+      self.genCheckOp(
+        index = 2,
+        ("&+", tOpAmpPlus),
+        ("&+=", tOpAmpPlusEq),
+      )
+    of '-':
+      # Check if '>' comes after '&-', making it '&->'.
+      # We want to parse that like '&(->...)',
+      # so we only return '&' for now.
+      if self.peekNextChar == '>':
+        self.token.kind = tOpAmp
+      else:
+        self.genCheckOp(
+          index = 2,
+          ("&-", tOpAmpMinus),
+          ("&-=", tOpAmpMinusEq),
+        )
+    of '*':
+      self.genCheckOp(
+        index = 2,
+        ("&*", tOpAmpStar),
+        ("&**", tOpAmpStarStar),
+        ("&*=", tOpAmpStarEq),
+      )
+    else:
+      self.token.kind = tOpAmp
+  of '|':
+    self.genCheckOp(
+      index = 1,
+      ("|", tOpBar),
+      ("|=", tOpBarEq),
+      ("||", tOpBarBar),
+      ("||=", tOpBarBarEq),
+    )
+  of '^':
+    self.genCheckOp(
+      index = 1,
+      ("^", tOpCaret),
+      ("^=", tOpCaretEq),
+    )
+  of '\'':
+    start = self.currentPos
+    let
+      line = self.lineNumber
+      column = self.columnNumber
+      char1 = self.nextChar
+    self.token.kind = tChar
+    case char1
+    of '\\':
+      let char2 = self.nextChar
+      case char2
+      of '\\':
+        self.token.value = TokenValue(kind: tvChar, char: '\\')
+      of '\'':
+        self.token.value = TokenValue(kind: tvChar, char: '\'')
+      of 'a':
+        self.token.value = TokenValue(kind: tvChar, char: '\a')
+      of 'b':
+        self.token.value = TokenValue(kind: tvChar, char: '\b')
+      of 'e':
+        self.token.value = TokenValue(kind: tvChar, char: '\e')
+      of 'f':
+        self.token.value = TokenValue(kind: tvChar, char: '\f')
+      of 'n':
+        self.token.value = TokenValue(kind: tvChar, char: '\n')
+      of 'r':
+        self.token.value = TokenValue(kind: tvChar, char: '\r')
+      of 't':
+        self.token.value = TokenValue(kind: tvChar, char: '\t')
+      of 'v':
+        self.token.value = TokenValue(kind: tvChar, char: '\v')
+      of 'u':
+        # TODO: implement consumeCharUnicodeEscape
+        self.unknownToken
+      of '0':
+        self.token.value = TokenValue(kind: tvChar, char: '\0')
+      of '\0':
+        self.`raise` "unterminated char literal", line, column
+      else:
+        self.`raise` &"invalid char escape sequence '\\{char2}'", line, column
+    of '\'':
+      self.`raise` "invalid empty char literal (did you mean '\\''?)", line, column
+    of '\0':
+      self.`raise` "unterminated char literal", line, column
+    else:
+      self.token.value = TokenValue(kind: tvChar, char: char1)
+    if self.nextChar != '\'':
+      self.`raise` "unterminated char literal, use double quotes for strings", line, column
+    discard self.nextChar
+    self.setTokenRawFromStart(start)
+  of '`':
+    if self.wantsDefOrMacroName:
+      self.nextChar tOpGrave
+    else:
+      self.delimitedPair dkCommand, '`', '`', start
+  of '"':
+    self.delimitedPair dkString, '"', '"', start
   of '0'..'9':
     self.scanNumber start
-  # TODO
+  of '@':
+    start = self.currentPos
+    case self.nextChar
+    of '[':
+      self.nextChar tOpAtLsquare
+    of '@':
+      discard self.nextChar
+      self.consumeVariable tClassVar, start
+    else:
+      self.consumeVariable tInstanceVar, start
+  of '$':
+    start = self.currentPos
+    case self.nextChar
+    of '~':
+      self.nextChar tOpDollarTilde
+    of '?':
+      self.nextChar tOpDollarQuestion
+    else:
+      if self.currentChar.isDigit:
+        start = self.currentPos
+        if self.currentChar == '0':
+          discard self.nextChar
+        else:
+          while self.nextChar.isDigit:
+            discard
+          if self.currentChar == '?':
+            discard self.nextChar
+        self.token.kind = tGlobalMatchDataIndex
+        self.token.value = TokenValue(
+          kind: tvString,
+          string: self.stringRange(start),
+        )
+      else:
+        self.consumeVariable tGlobal, start
+  of 'a':
+    self.genCheckIdentOrKeyword(
+      start,
+      ("abstract", kAbstract),
+      ("alias", kAlias),
+      ("asm", kAsm),
+      ("as?", kAsQuestion),
+      ("as", kAs),
+      ("annotation", kAnnotation),
+    )
+  of 'b':
+    self.genCheckIdentOrKeyword(
+      start,
+      ("begin", kBegin),
+      ("break", kBreak),
+    )
+  of 'c':
+    self.genCheckIdentOrKeyword(
+      start,
+      ("case", kCase),
+      ("class", kClass),
+    )
+  of 'd':
+    self.genCheckIdentOrKeyword(
+      start,
+      ("def", kDef),
+      ("do", kDo),
+    )
+  of 'e':
+    self.genCheckIdentOrKeyword(
+      start,
+      ("else", kElse),
+      ("elsif", kElsif),
+      ("end", kEnd),
+      ("ensure", kEnsure),
+      ("enum", kEnum),
+      ("extend", kExtend),
+    )
+  of 'f':
+    self.genCheckIdentOrKeyword(
+      start,
+      ("false", kFalse),
+      ("for", kFor),
+      ("fun", kFun),
+    )
+  of 'i':
+    self.genCheckIdentOrKeyword(
+      start,
+      ("if", kIf),
+      ("include", kInclude),
+      ("instance_sizeof", kInstanceSizeof),
+      ("in", kIn),
+      ("is_a?", kIsAQuestion),
+    )
+  of 'l':
+    self.genCheckIdentOrKeyword(
+      start,
+      ("lib", kLib),
+    )
+  of 'm':
+    self.genCheckIdentOrKeyword(
+      start,
+      ("macro", kMacro),
+      ("module", kModule),
+    )
+  of 'n':
+    self.genCheckIdentOrKeyword(
+      start,
+      ("next", kNext),
+      ("nil?", kNilQuestion),
+      ("nil", kNil),
+    )
+  of 'o':
+    self.genCheckIdentOrKeyword(
+      start,
+      ("offsetof", kOffsetof),
+      ("of", kOf),
+      ("out", kOut),
+    )
+  of 'p':
+    self.genCheckIdentOrKeyword(
+      start,
+      ("pointerof", kPointerof),
+      ("private", kPrivate),
+      ("protected", kProtected),
+    )
+  of 'r':
+    self.genCheckIdentOrKeyword(
+      start,
+      ("rescue", kRescue),
+      ("responds_to?", kRespondsToQuestion),
+      ("return", kReturn),
+      ("require", kRequire),
+    )
+  of 's':
+    self.genCheckIdentOrKeyword(
+      start,
+      ("select", kSelect),
+      ("self", kSelf),
+      ("sizeof", kSizeof),
+      ("struct", kStruct),
+      ("super", kSuper),
+    )
+  of 't':
+    self.genCheckIdentOrKeyword(
+      start,
+      ("then", kThen),
+      ("true", kTrue),
+      ("typeof", kTypeof),
+      ("type", kType),
+    )
+  of 'u':
+    self.genCheckIdentOrKeyword(
+      start,
+      ("union", kUnion),
+      ("uninitialized", kUninitialized),
+      ("unless", kUnless),
+      ("until", kUntil),
+    )
+  of 'v':
+    self.genCheckIdentOrKeyword(
+      start,
+      ("verbatim", kVerbatim),
+    )
+  of 'w':
+    self.genCheckIdentOrKeyword(
+      start,
+      ("when", kWhen),
+      ("while", kWhile),
+      ("with", kWith),
+    )
+  of 'y':
+    self.genCheckIdentOrKeyword(
+      start,
+      ("yield", kYield),
+    )
+  of '_':
+    case self.nextChar
+    of '_':
+      case self.nextChar
+      of 'D':
+        if self.charSequence('I', 'R', '_', '_'):
+          if not self.peekNextChar.isIdentPartOrEnd:
+            discard self.nextChar
+            self.token.kind = tMagicDir
+            return
+      of 'E':
+        if self.charSequence('N', 'D', '_', 'L', 'I', 'N', 'E', '_', '_'):
+          if not self.peekNextChar.isIdentPartOrEnd:
+            discard self.nextChar
+            self.token.kind = tMagicEndLine
+            return
+      of 'F':
+        if self.charSequence('I', 'L', 'E', '_', '_'):
+          if not self.peekNextChar.isIdentPartOrEnd:
+            discard self.nextChar
+            self.token.kind = tMagicFile
+            return
+      of 'L':
+        if self.charSequence('I', 'N', 'E', '_', '_'):
+          if not self.peekNextChar.isIdentPartOrEnd:
+            discard self.nextChar
+            self.token.kind = tMagicLine
+            return
+      else:
+        discard # scanIdent
+    else:
+      if not self.currentChar.isIdentPart:
+        self.token.kind = tUnderscore
+        return
+
+    self.scanIdent(start)
   else:
     if self.currentChar.isUpperAscii:
       start = self.currentPos
@@ -579,26 +1143,76 @@ proc advanceToken(self: Lexer) =
     self.slashIsRegex = false
 
 if isMainModule:
-  var lexer = newLexer("Foo")
-  lexer.advanceToken
-  assert $lexer.token == "Foo"
+  proc assertLexes(
+    s: string,
+    tokenKind: TokenKind,
+    setup: proc (lexer: Lexer) = nil,
+  ) =
+    let lexer = newLexer(s)
+    if not setup.isNil:
+      setup(lexer)
+    lexer.nextToken
+    assert lexer.token.kind == tokenKind
+    case lexer.token.kind
+    of {
+      tClassVar, tConst,
+      tGlobal,
+      tIdent, tInstanceVar,
+    }:
+      assert lexer.token.value.kind == tvString
+      assert lexer.token.value.string == s
+    of tGlobalMatchDataIndex:
+      assert lexer.token.value.kind == tvString
+      assert lexer.token.value.string == s[1..^1]
+    else:
+      discard
 
-  lexer = newLexer("foo")
-  lexer.advanceToken
-  assert $lexer.token == "foo"
+  proc assertLexes(s: string, keyword: Keyword) =
+    let lexer = newLexer(s)
+    lexer.nextToken
+    assert lexer.token.kind == tIdent
+    assert lexer.token.value.kind == tvKeyword
+    assert lexer.token.value.keyword == keyword
 
-  lexer = newLexer("=")
-  lexer.advanceToken
-  assert lexer.token.kind == tOpEq
+  proc assertLexes(
+    s: string,
+    kind: DelimiterKind,
+    nest, `end`: char,
+  ) =
+    let lexer = newLexer(s)
+    lexer.nextToken
+    assert lexer.token.kind == tDelimiterStart
+    assert lexer.token.delimiterState.kind == kind
+    assert lexer.token.delimiterState.nestChar == nest
+    assert lexer.token.delimiterState.endChar == `end`
 
-  lexer = newLexer("=>")
-  lexer.advanceToken
-  assert lexer.token.kind == tOpEqGt
+  assertLexes("Foo", tConst)
+  assertLexes("foo", tIdent)
+  assertLexes("=", tOpEq)
+  assertLexes("=>", tOpEqGt)
+  assertLexes("==", tOpEqEq)
+  assertLexes("===", tOpEqEqEq)
+  assertLexes("123", tNumber)
+  assertLexes("-123", tNumber)
+  assertLexes("when", kWhen)
+  assertLexes("w", tIdent)
+  assertLexes("when?", tIdent)
+  assertLexes("/", dkRegex, '/', '/')
 
-  lexer = newLexer("==")
-  lexer.advanceToken
-  assert lexer.token.kind == tOpEqEq
+  assertLexes("/", tOpSlash) do (lexer: Lexer):
+    lexer.slashIsRegex = false
 
-  lexer = newLexer("===")
-  lexer.advanceToken
-  assert lexer.token.kind == tOpEqEqEq
+  assertLexes("//", tOpSlashSlash) do (lexer: Lexer):
+    lexer.slashIsRegex = false
+
+  assertLexes("//=", tOpSlashSlashEq) do (lexer: Lexer):
+    lexer.slashIsRegex = false
+
+  assertLexes("/=", tOpSlashEq) do (lexer: Lexer):
+    lexer.slashIsRegex = false
+
+  assertLexes("@foo", tInstanceVar)
+  assertLexes("@@foo", tClassVar)
+  assertLexes("$foo", tGlobal)
+  assertLexes("$123", tGlobalMatchDataIndex)
+  assertLexes("'z'", tChar)
