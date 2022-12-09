@@ -98,14 +98,14 @@ proc `raise`*(
   token: Token,
   size: int,
 ) {.noReturn.} =
-  self.`raise` message, token, size.some
+  self.`raise`message, token, size.some
 
 proc `raise`*(
   self: Lexer,
   message: string,
   location: Location,
 ) {.noReturn.} =
-  self.`raise` message, location.lineNumber, location.columnNumber, location.filename
+  self.`raise`message, location.lineNumber, location.columnNumber, location.filename
 
 proc incrColumnNumber(self: Lexer, d = 1) =
   self.columnNumber += d
@@ -240,7 +240,7 @@ proc handleCrlfOrLf(self: Lexer): bool =
   result = self.currentChar == '\r'
   if result:
     if self.nextChar != '\n':
-      self.`raise` "expecting '\\n' after '\\r'"
+      self.`raise`"expecting '\\n' after '\\r'"
 
 proc charSequence(
   self: Lexer,
@@ -260,7 +260,7 @@ proc charSequence(self: Lexer, tokens: varargs[char]): bool =
 
 proc unknownToken(self: Lexer) {.noReturn.} =
   let escaped = self.currentChar.`$`.escape("'", "'")
-  self.`raise` fmt"unknown token: {escaped}"
+  self.`raise`fmt"unknown token: {escaped}"
 
 proc setTokenRawFromStart(self: Lexer, start: int) =
   if self.wantsRaw:
@@ -348,7 +348,7 @@ proc consumeNewlines(self: Lexer) =
       self.token.docBuffer = string.none
     of '\r':
       if self.nextCharNoColumnIncrement != '\n':
-        self.`raise` "expected '\\n' after '\\r'"
+        self.`raise`"expected '\\n' after '\\r'"
       discard self.nextCharNoColumnIncrement
       self.incrLineNumber(int.none)
       self.token.docBuffer = string.none
@@ -599,7 +599,7 @@ method nextToken(self: Lexer) =
       resetRegexFlags = false
       self.consumeNewlines
     else:
-      self.`raise` "expected '\\n' after '\\r'"
+      self.`raise`"expected '\\n' after '\\r'"
   of '=':
     self.genCheckOp(
       index = 1,
@@ -651,7 +651,7 @@ method nextToken(self: Lexer) =
     of '0'..'9':
       self.scanNumber start
     of '+':
-      self.`raise` "postfix increment is not supported, use `exp += 1`"
+      self.`raise`"postfix increment is not supported, use `exp += 1`"
     else:
       self.token.kind = tOpPlus
   of '-':
@@ -664,7 +664,7 @@ method nextToken(self: Lexer) =
     of '0'..'9':
       self.scanNumber start, negative = true
     of '-':
-      self.`raise` "postfix decrement is not supported, use `exp -= 1`"
+      self.`raise`"postfix decrement is not supported, use `exp -= 1`"
     else:
       self.token.kind = tOpMinus
   of '*':
@@ -735,14 +735,14 @@ method nextToken(self: Lexer) =
           let c = self.currentChar
           self.delimitedPair dkString, c, c.closingChar, start
         else:
-          self.`raise` "unknown %r char"
+          self.`raise`"unknown %r char"
       of 'x':
         case self.nextChar
         of '(', '{', '[', '<', '|':
           let c = self.currentChar
           self.delimitedPair dkCommand, c, c.closingChar, start
         else:
-          self.`raise` "unknown %x char"
+          self.`raise`"unknown %x char"
       of 'w':
         case self.peekNextChar
         of '(', '{', '[', '<', '|':
@@ -804,7 +804,7 @@ method nextToken(self: Lexer) =
         self.token.kind = tOpPeriodPeriod
     else:
       if self.currentChar.isDigit:
-        self.`raise` ".1 style number literal is not supported, put 0 before dot", line, column
+        self.`raise`".1 style number literal is not supported, put 0 before dot", line, column
       self.token.kind = tOpPeriod
   of '&':
     case self.nextChar
@@ -894,17 +894,17 @@ method nextToken(self: Lexer) =
       of '0':
         self.token.value = TokenValue(kind: tvChar, char: '\0')
       of '\0':
-        self.`raise` "unterminated char literal", line, column
+        self.`raise`"unterminated char literal", line, column
       else:
         self.`raise` &"invalid char escape sequence '\\{char2}'", line, column
     of '\'':
-      self.`raise` "invalid empty char literal (did you mean '\\''?)", line, column
+      self.`raise`"invalid empty char literal (did you mean '\\''?)", line, column
     of '\0':
-      self.`raise` "unterminated char literal", line, column
+      self.`raise`"unterminated char literal", line, column
     else:
       self.token.value = TokenValue(kind: tvChar, char: char1)
     if self.nextChar != '\'':
-      self.`raise` "unterminated char literal, use double quotes for strings", line, column
+      self.`raise`"unterminated char literal, use double quotes for strings", line, column
     discard self.nextChar
     self.setTokenRawFromStart(start)
   of '`':

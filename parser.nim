@@ -110,13 +110,13 @@ proc nextComesColonSpace(self: Parser): bool =
 proc checkNotInsideDef[T](
   self: Parser,
   message: string,
-  fun: proc (): T {.closure},
+  fun: proc (): T {.closure.},
 ): T =
   if self.defNest == 0 and self.funNest == 0:
     result = fun()
   else:
     let suffix = if self.isInsideDef: " inside def" else: " inside fun"
-    self.`raise` message & suffix, self.token.lineNumber, self.token.columnNumber
+    self.`raise`message & suffix, self.token.lineNumber, self.token.columnNumber
 
 template isInsideDef(self: Parser): bool =
   self.defNest > 0
@@ -148,7 +148,7 @@ proc checkNotPipeBeforeProcLiteralBody(self: Parser) =
     else:
       msg.add "param : Type"
     msg.add ") { ... }"
-    self.`raise` msg, location
+    self.`raise`msg, location
 
 proc isNamedTupleStart(self: Parser): bool =
   case self.token.kind
@@ -163,11 +163,11 @@ proc isStringLiteralStart(self: Parser): bool =
 proc checkValidDefName(self: Parser) =
   if self.token.value.kind == tvKeyword and
       self.token.value.keyword in {kIsAQuestion, kAs, kAsQuestion, kRespondsToQuestion, kNilQuestion}:
-    self.`raise` fmt"'{self.token.value}' is a pseudo-method and can't be redefined", self.token
+    self.`raise`fmt"'{self.token.value}' is a pseudo-method and can't be redefined", self.token
 
 proc checkValidDefOpName(self: Parser) =
   if self.token.kind == tOpBang:
-    self.`raise` "'!' is a pseudo-method and can't be redefined", self.token
+    self.`raise`"'!' is a pseudo-method and can't be redefined", self.token
 
 proc computeBlockArgYields(self: Parser, blockArg: Arg) =
   let blockArgRestriction = blockArg.restriction.get(nil)
@@ -374,29 +374,29 @@ proc checkVoidValue(
   location: Location,
 ) =
   if exp of ControlExpression:
-    self.`raise` "void value expression", location
+    self.`raise`"void value expression", location
 
 proc checkVoidExpressionKeyword(self: Parser) =
   if self.token.value.kind == tvKeyword:
     case self.token.value.keyword
     of kBreak, kNext, kReturn:
       if not self.nextComesColonSpace:
-        self.`raise` "void value expression", self.token, self.token.value.`$`.len
+        self.`raise`"void value expression", self.token, self.token.value.`$`.len
     else:
       discard
 
 proc check(self: Parser, tokenKinds: openArray[TokenKind]) =
   if self.token.kind notin tokenKinds:
     let tokenKinds = tokenKinds.join ", "
-    self.`raise` fmt"expecting any of these tokens: '{tokenKinds}' (not '{self.token.kind}')", self.token
+    self.`raise`fmt"expecting any of these tokens: '{tokenKinds}' (not '{self.token.kind}')", self.token
 
 proc check(self: Parser, tokenKind: TokenKind) =
   if self.token.kind != tokenKind:
-    self.`raise` fmt"expecting token '{tokenKind}', not '{self.token}'", self.token
+    self.`raise`fmt"expecting token '{tokenKind}', not '{self.token}'", self.token
 
 proc checkIdent(self: Parser, value: Keyword) =
   if not self.token.isKeyword(value):
-    self.`raise` fmt"expecting identifier '{value}', not '{self.token}'", self.token
+    self.`raise`fmt"expecting identifier '{value}', not '{self.token}'", self.token
 
 const DefOrMacroCheck1 = [
   tIdent, tConst, tOpGrave,
@@ -467,7 +467,7 @@ proc pushVar(self: Parser, node: ASTNode) =
     elif v of InstanceVar:
       self.pushVarName v.InstanceVar.name
     else:
-      self.`raise` "can't happen"
+      self.`raise`"can't happen"
   else:
     discard
 
@@ -510,14 +510,14 @@ proc unexpectedToken(
 ) {.noReturn.} =
   let tokenStr = if token.kind == tEof: "EOF" else: token.`$`.escape
   if msg.isSome:
-    self.`raise` fmt"unexpected token: {token_str} ({msg.get})", token
+    self.`raise`fmt"unexpected token: {token_str} ({msg.get})", token
   else:
-    self.`raise` fmt"unexpected token: {token_str}", token
+    self.`raise`fmt"unexpected token: {token_str}", token
 
 proc unexpectedTokenInAtomic(self: Parser) {.noReturn.} =
   if self.unclosedStack.len > 0:
     let unclosed = self.unclosedStack[^1]
-    self.`raise` fmt"unterminated {unclosed.name}", unclosed.location
+    self.`raise`fmt"unterminated {unclosed.name}", unclosed.location
 
   self.unexpectedToken
 
@@ -663,7 +663,7 @@ proc parseMultiAssign(self: Parser): ASTNode =
       if lhsSplatIndex.isSome:
         self.unexpectedToken
       if last of Path:
-        self.`raise` "Multiple assignment is not allowed for constants"
+        self.`raise`"Multiple assignment is not allowed for constants"
       self.unexpectedToken
   of tNewline, tOpSemicolon:
     if lhsSplatIndex.isSome and not last.isMultiAssignMiddle:
@@ -693,7 +693,7 @@ proc parseMultiAssign(self: Parser): ASTNode =
     self.nextTokenSkipSpaceOrNewline
     if self.token.kind == tOpStar:
       if lhsSplatIndex.isSome:
-        self.`raise` "splat assignment already specified"
+        self.`raise`"splat assignment already specified"
       lhsSplatIndex = i.some
       self.nextTokenSkipSpace
 

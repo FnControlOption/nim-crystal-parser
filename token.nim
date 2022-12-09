@@ -106,80 +106,80 @@ type
     tMacroVar
     tMacroEnd
 
-    tOpBang                     # !
-    tOpBangEq                  # !=
-    tOpBangTilde               # !~
-    tOpDollarQuestion          # $?
-    tOpDollarTilde             # $~
-    tOpPercent                  # %
-    tOpPercentEq               # %=
-    tOpPercentRcurly           # %}
-    tOpAmp                      # &
-    tOpAmpAmp                  # &&
+    tOpBang                   # !
+    tOpBangEq                 # !=
+    tOpBangTilde              # !~
+    tOpDollarQuestion         # $?
+    tOpDollarTilde            # $~
+    tOpPercent                # %
+    tOpPercentEq              # %=
+    tOpPercentRcurly          # %}
+    tOpAmp                    # &
+    tOpAmpAmp                 # &&
     tOpAmpAmpEq               # &&=
-    tOpAmpStar                 # &*
+    tOpAmpStar                # &*
     tOpAmpStarStar            # &**
     tOpAmpStarEq              # &*=
-    tOpAmpPlus                 # &+
+    tOpAmpPlus                # &+
     tOpAmpPlusEq              # &+=
-    tOpAmpMinus                # &-
+    tOpAmpMinus               # &-
     tOpAmpMinusEq             # &-=
-    tOpAmpEq                   # &=
-    tOpLparen                   # (
-    tOpRparen                   # )
-    tOpStar                     # *
-    tOpStarStar                # **
+    tOpAmpEq                  # &=
+    tOpLparen                 # (
+    tOpRparen                 # )
+    tOpStar                   # *
+    tOpStarStar               # **
     tOpStarStarEq             # **=
-    tOpStarEq                  # *=
-    tOpPlus                     # +
-    tOpPlusEq                  # +=
-    tOpComma                    # ,
-    tOpMinus                    # -
-    tOpMinusEq                 # -=
-    tOpMinusGt                 # ->
-    tOpPeriod                   # .
-    tOpPeriodPeriod            # ..
+    tOpStarEq                 # *=
+    tOpPlus                   # +
+    tOpPlusEq                 # +=
+    tOpComma                  # ,
+    tOpMinus                  # -
+    tOpMinusEq                # -=
+    tOpMinusGt                # ->
+    tOpPeriod                 # .
+    tOpPeriodPeriod           # ..
     tOpPeriodPeriodPeriod     # ...
-    tOpSlash                    # /
-    tOpSlashSlash              # //
+    tOpSlash                  # /
+    tOpSlashSlash             # //
     tOpSlashSlashEq           # //=
-    tOpSlashEq                 # /=
-    tOpColon                    # :
-    tOpColonColon              # ::
-    tOpSemicolon                # ;
-    tOpLt                       # <
-    tOpLtLt                    # <<
+    tOpSlashEq                # /=
+    tOpColon                  # :
+    tOpColonColon             # ::
+    tOpSemicolon              # ;
+    tOpLt                     # <
+    tOpLtLt                   # <<
     tOpLtLtEq                 # <<=
-    tOpLtEq                    # <=
+    tOpLtEq                   # <=
     tOpLtEqGt                 # <=>
-    tOpEq                       # =
-    tOpEqEq                    # ==
+    tOpEq                     # =
+    tOpEqEq                   # ==
     tOpEqEqEq                 # ===
-    tOpEqGt                    # =>
-    tOpEqTilde                 # =~
-    tOpGt                       # >
-    tOpGtEq                    # >=
-    tOpGtGt                    # >>
+    tOpEqGt                   # =>
+    tOpEqTilde                # =~
+    tOpGt                     # >
+    tOpGtEq                   # >=
+    tOpGtGt                   # >>
     tOpGtGtEq                 # >>=
-    tOpQuestion                 # ?
-    tOpAtLsquare               # @[
-    tOpLsquare                  # [
-    tOpLsquareRsquare          # []
+    tOpQuestion               # ?
+    tOpAtLsquare              # @[
+    tOpLsquare                # [
+    tOpLsquareRsquare         # []
     tOpLsquareRsquareEq       # []=
     tOpLsquareRsquareQuestion # []?
-    tOpRsquare                  # ]
-    tOpCaret                    # ^
-    tOpCaretEq                 # ^=
-    tOpGrave                    # `
-    tOpLcurly                   # {
-    tOpLcurlyPercent           # {%
-    tOpLcurlyLcurly            # {{
-    tOpBar                      # |
-    tOpBarEq                   # |=
-    tOpBarBar                  # ||
+    tOpRsquare                # ]
+    tOpCaret                  # ^
+    tOpCaretEq                # ^=
+    tOpGrave                  # `
+    tOpLcurly                 # {
+    tOpLcurlyPercent          # {%
+    tOpLcurlyLcurly           # {{
+    tOpBar                    # |
+    tOpBarEq                  # |=
+    tOpBarBar                 # ||
     tOpBarBarEq               # ||=
-    tOpRcurly                   # }
-    tOpTilde                    # ~
+    tOpRcurly                 # }
+    tOpTilde                  # ~
 
   TokenValueKind* = enum
     tvChar
@@ -244,80 +244,80 @@ proc `$`*(self: Keyword): string =
 
 proc `$`*(self: TokenKind): string =
   case self
-  of tOpBang:                     "!"
-  of tOpBangEq:                  "!="
-  of tOpBangTilde:               "!~"
-  of tOpDollarQuestion:          "$?"
-  of tOpDollarTilde:             "$~"
-  of tOpPercent:                  "%"
-  of tOpPercentEq:               "%="
-  of tOpPercentRcurly:           "%}"
-  of tOpAmp:                      "&"
-  of tOpAmpAmp:                  "&&"
-  of tOpAmpAmpEq:               "&&="
-  of tOpAmpStar:                 "&*"
-  of tOpAmpStarStar:            "&**"
-  of tOpAmpStarEq:              "&*="
-  of tOpAmpPlus:                 "&+"
-  of tOpAmpPlusEq:              "&+="
-  of tOpAmpMinus:                "&-"
-  of tOpAmpMinusEq:             "&-="
-  of tOpAmpEq:                   "&="
-  of tOpLparen:                   "("
-  of tOpRparen:                   ")"
-  of tOpStar:                     "*"
-  of tOpStarStar:                "**"
-  of tOpStarStarEq:             "**="
-  of tOpStarEq:                  "*="
-  of tOpPlus:                     "+"
-  of tOpPlusEq:                  "+="
-  of tOpComma:                    ","
-  of tOpMinus:                    "-"
-  of tOpMinusEq:                 "-="
-  of tOpMinusGt:                 "->"
-  of tOpPeriod:                   "."
-  of tOpPeriodPeriod:            ".."
-  of tOpPeriodPeriodPeriod:     "..."
-  of tOpSlash:                    "/"
-  of tOpSlashSlash:              "//"
-  of tOpSlashSlashEq:           "//="
-  of tOpSlashEq:                 "/="
-  of tOpColon:                    ":"
-  of tOpColonColon:              "::"
-  of tOpSemicolon:                ";"
-  of tOpLt:                       "<"
-  of tOpLtLt:                    "<<"
-  of tOpLtLtEq:                 "<<="
-  of tOpLtEq:                    "<="
-  of tOpLtEqGt:                 "<=>"
-  of tOpEq:                       "="
-  of tOpEqEq:                    "=="
-  of tOpEqEqEq:                 "==="
-  of tOpEqGt:                    "=>"
-  of tOpEqTilde:                 "=~"
-  of tOpGt:                       ">"
-  of tOpGtEq:                    ">="
-  of tOpGtGt:                    ">>"
-  of tOpGtGtEq:                 ">>="
-  of tOpQuestion:                 "?"
-  of tOpAtLsquare:               "@["
-  of tOpLsquare:                  "["
-  of tOpLsquareRsquare:          "[]"
-  of tOpLsquareRsquareEq:       "[]="
+  of tOpBang: "!"
+  of tOpBangEq: "!="
+  of tOpBangTilde: "!~"
+  of tOpDollarQuestion: "$?"
+  of tOpDollarTilde: "$~"
+  of tOpPercent: "%"
+  of tOpPercentEq: "%="
+  of tOpPercentRcurly: "%}"
+  of tOpAmp: "&"
+  of tOpAmpAmp: "&&"
+  of tOpAmpAmpEq: "&&="
+  of tOpAmpStar: "&*"
+  of tOpAmpStarStar: "&**"
+  of tOpAmpStarEq: "&*="
+  of tOpAmpPlus: "&+"
+  of tOpAmpPlusEq: "&+="
+  of tOpAmpMinus: "&-"
+  of tOpAmpMinusEq: "&-="
+  of tOpAmpEq: "&="
+  of tOpLparen: "("
+  of tOpRparen: ")"
+  of tOpStar: "*"
+  of tOpStarStar: "**"
+  of tOpStarStarEq: "**="
+  of tOpStarEq: "*="
+  of tOpPlus: "+"
+  of tOpPlusEq: "+="
+  of tOpComma: ","
+  of tOpMinus: "-"
+  of tOpMinusEq: "-="
+  of tOpMinusGt: "->"
+  of tOpPeriod: "."
+  of tOpPeriodPeriod: ".."
+  of tOpPeriodPeriodPeriod: "..."
+  of tOpSlash: "/"
+  of tOpSlashSlash: "//"
+  of tOpSlashSlashEq: "//="
+  of tOpSlashEq: "/="
+  of tOpColon: ":"
+  of tOpColonColon: "::"
+  of tOpSemicolon: ";"
+  of tOpLt: "<"
+  of tOpLtLt: "<<"
+  of tOpLtLtEq: "<<="
+  of tOpLtEq: "<="
+  of tOpLtEqGt: "<=>"
+  of tOpEq: "="
+  of tOpEqEq: "=="
+  of tOpEqEqEq: "==="
+  of tOpEqGt: "=>"
+  of tOpEqTilde: "=~"
+  of tOpGt: ">"
+  of tOpGtEq: ">="
+  of tOpGtGt: ">>"
+  of tOpGtGtEq: ">>="
+  of tOpQuestion: "?"
+  of tOpAtLsquare: "@["
+  of tOpLsquare: "["
+  of tOpLsquareRsquare: "[]"
+  of tOpLsquareRsquareEq: "[]="
   of tOpLsquareRsquareQuestion: "[]?"
-  of tOpRsquare:                  "]"
-  of tOpCaret:                    "^"
-  of tOpCaretEq:                 "^="
-  of tOpGrave:                    "`"
-  of tOpLcurly:                   "{"
-  of tOpLcurlyPercent:           "{%"
-  of tOpLcurlyLcurly:            "{{"
-  of tOpBar:                      "|"
-  of tOpBarEq:                   "|="
-  of tOpBarBar:                  "||"
-  of tOpBarBarEq:               "||="
-  of tOpRcurly:                   "}"
-  of tOpTilde:                    "~"
+  of tOpRsquare: "]"
+  of tOpCaret: "^"
+  of tOpCaretEq: "^="
+  of tOpGrave: "`"
+  of tOpLcurly: "{"
+  of tOpLcurlyPercent: "{%"
+  of tOpLcurlyLcurly: "{{"
+  of tOpBar: "|"
+  of tOpBarEq: "|="
+  of tOpBarBar: "||"
+  of tOpBarBarEq: "||="
+  of tOpRcurly: "}"
+  of tOpTilde: "~"
 
   of tMagicDir: "__DIR__"
   of tMagicEndLine: "__END_LINE__"
