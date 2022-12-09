@@ -12,13 +12,13 @@ type
     ekBegin
 
   Expressions* = ref object of ASTNode
-    expressions: seq[ASTNode]
-    keyword: ExpressionsKeyword
+    expressions*: seq[ASTNode]
+    keyword*: ExpressionsKeyword
 
   NilLiteral* = ref object of ASTNode
 
   BoolLiteral* = ref object of ASTNode
-    value: bool
+    value*: bool
 
   NumberKind* = enum
     nkI8
@@ -35,166 +35,166 @@ type
     nkF64
 
   NumberLiteral* = ref object of ASTNode
-    value: string
-    kind: NumberKind
+    value*: string
+    kind*: NumberKind
 
   CharLiteral* = ref object of ASTNode
-    value: char
+    value*: char
 
   StringLiteral* = ref object of ASTNode
-    value: string
+    value*: string
 
   StringInterpolation* = ref object of ASTNode
-    expressions: seq[ASTNode]
+    expressions*: seq[ASTNode]
 
   SymbolLiteral* = ref object of ASTNode
-    value: string
+    value*: string
 
   ArrayLiteral* = ref object of ASTNode
-    elements: seq[ASTNode]
-    `of`, name: Option[ASTNode]
+    elements*: seq[ASTNode]
+    `of`*, name*: Option[ASTNode]
 
   HashLiteral* = ref object of ASTNode
-    entries: seq[HashEntry]
-    `of`: Option[HashEntry]
-    name: Option[ASTNode]
+    entries*: seq[HashEntry]
+    `of`*: Option[HashEntry]
+    name*: Option[ASTNode]
 
   HashEntry* = object
-    key, value: ASTNode
+    key*, value*: ASTNode
 
   NamedTupleLiteral* = ref object of ASTNode
-    entries: seq[NamedTupleEntry]
+    entries*: seq[NamedTupleEntry]
 
   NamedTupleEntry* = object
-    key: string
-    value: ASTNode
+    key*: string
+    value*: ASTNode
 
   RangeLiteral* = ref object of ASTNode
-    `from`, to: ASTNode
-    exclusive: bool
+    `from`*, to*: ASTNode
+    exclusive*: bool
 
   RegexLiteral* = ref object of ASTNode
-    value: ASTNode
+    value*: ASTNode
     # options
 
   TupleLiteral* = ref object of ASTNode
-    elements: seq[ASTNode]
+    elements*: seq[ASTNode]
 
   # SpecialVar
 
   Var* = ref object of ASTNode
-    name: string
+    name*: string
 
   Block* = ref object of ASTNode
-    args: seq[Var]
-    body: ASTNode
-    call: Option[Call]
-    splatIndex: Option[int]
+    args*: seq[Var]
+    body*: ASTNode
+    call*: Option[Call]
+    splatIndex*: Option[int]
 
   Call* = ref object of ASTNode
-    obj: Option[ASTNode]
-    name: string
-    args: seq[ASTNode]
-    `block`: Option[Block]
-    blockArg: Option[ASTNode]
-    namedArgs: Option[seq[NamedArgument]]
-    nameLocation: Option[Location]
-    nameSize: int
-    doc: Option[string]
-    visibility: Visibility
-    global, expansion, hasParentheses: bool
+    obj*: Option[ASTNode]
+    name*: string
+    args*: seq[ASTNode]
+    `block`*: Option[Block]
+    blockArg*: Option[ASTNode]
+    namedArgs*: Option[seq[NamedArgument]]
+    nameLocation*: Option[Location]
+    nameSize*: int
+    doc*: Option[string]
+    visibility*: Visibility
+    global*, expansion*, hasParentheses*: bool
 
   NamedArgument* = ref object of ASTNode
-    name: string
-    value: ASTNode
+    name*: string
+    value*: ASTNode
 
   If* = ref object of ASTNode
-    cond, then, `else`: ASTNode
-    ternary: bool
-    elseLocation: Option[Location]
+    cond*, then*, `else`*: ASTNode
+    ternary*: bool
+    elseLocation*: Option[Location]
 
   Unless* = ref object of ASTNode
-    cond, then, `else`: ASTNode
-    elseLocation: Option[Location]
+    cond*, then*, `else`*: ASTNode
+    elseLocation*: Option[Location]
 
   Assign* = ref object of ASTNode
-    target, value: ASTNode
-    doc: Option[string]
+    target*, value*: ASTNode
+    doc*: Option[string]
 
   OpAssign* = ref object of ASTNode
-    target: ASTNode
-    op: string
-    value: ASTNode
-    nameLocation: Option[Location]
+    target*: ASTNode
+    op*: string
+    value*: ASTNode
+    nameLocation*: Option[Location]
 
   MultiAssign* = ref object of ASTNode
-    targets, values: seq[ASTNode]
+    targets*, values*: seq[ASTNode]
 
   InstanceVar* = ref object of ASTNode
-    name: string
+    name*: string
 
   ReadInstanceVar* = ref object of ASTNode
-    obj: ASTNode
-    name: string
+    obj*: ASTNode
+    name*: string
 
   ClassVar* = ref object of ASTNode
-    name: string
+    name*: string
 
   Global* = ref object of ASTNode
-    name: string
+    name*: string
 
   BinaryOp* = ref object of ASTNode
-    left, right: ASTNode
+    left*, right*: ASTNode
 
   And* = ref object of BinaryOp
 
   Or* = ref object of BinaryOp
 
   Arg* = ref object of ASTNode
-    name, externalName: string
-    defaultValue, restriction: Option[ASTNode]
-    doc: Option[string]
-    parsedAnnotations: Option[seq[Annotation]]
+    name*, externalName*: string
+    defaultValue*, restriction*: Option[ASTNode]
+    doc*: Option[string]
+    parsedAnnotations*: Option[seq[Annotation]]
 
   ProcNotation* = ref object of ASTNode
-    inputs: Option[seq[ASTNode]]
-    output: Option[ASTNode]
+    inputs*: Option[seq[ASTNode]]
+    output*: Option[ASTNode]
 
   Def* = ref object of ASTNode
-    freeVars: Option[seq[string]]
-    receiver: Option[ASTNode]
-    name: string
-    args: seq[Arg]
-    doubleSplat: Option[Arg]
-    body: ASTNode
-    blockArg: Option[Arg]
-    returnType: Option[ASTNode]
-    yields: Option[int]
-    nameLocation: Option[Location]
-    splatIndex: Option[int]
-    doc: Option[string]
-    visibility: Visibility
+    freeVars*: Option[seq[string]]
+    receiver*: Option[ASTNode]
+    name*: string
+    args*: seq[Arg]
+    doubleSplat*: Option[Arg]
+    body*: ASTNode
+    blockArg*: Option[Arg]
+    returnType*: Option[ASTNode]
+    yields*: Option[int]
+    nameLocation*: Option[Location]
+    splatIndex*: Option[int]
+    doc*: Option[string]
+    visibility*: Visibility
 
-    macroDef: bool
-    callsSuper: bool
-    callsInitialize: bool
-    callsPreviousDef: bool
-    usesBlockArg: bool
-    assignsSpecialVar: bool
-    abstract: bool
+    macroDef*: bool
+    callsSuper*: bool
+    callsInitialize*: bool
+    callsPreviousDef*: bool
+    usesBlockArg*: bool
+    assignsSpecialVar*: bool
+    abstract*: bool
 
   Macro* = ref object of ASTNode
-    name: string
-    args: seq[Arg]
-    body: ASTNode
-    doubleSplat, blockArg: Option[Arg]
-    nameLocation: Option[Location]
-    splatIndex: Option[int]
-    doc: Option[string]
-    visibility: Visibility
+    name*: string
+    args*: seq[Arg]
+    body*: ASTNode
+    doubleSplat*, blockArg*: Option[Arg]
+    nameLocation*: Option[Location]
+    splatIndex*: Option[int]
+    doc*: Option[string]
+    visibility*: Visibility
 
   UnaryExpression* = ref object of ASTNode
-    exp: ASTNode
+    exp*: ASTNode
 
   Not* = ref object of UnaryExpression
 
@@ -207,121 +207,128 @@ type
   Out* = ref object of UnaryExpression
 
   OffsetOf* = ref object of ASTNode
-    offsetofType, offset: ASTNode
+    offsetofType*, offset*: ASTNode
 
   VisibilityModifier* = ref object of ASTNode
-    modifier: Visibility
-    exp: ASTNode
-    doc: Option[string]
+    modifier*: Visibility
+    exp*: ASTNode
+    doc*: Option[string]
 
   IsA* = ref object of ASTNode
-    obj, `const`: ASTNode
-    nilCheck: bool
+    obj*, `const`*: ASTNode
+    nilCheck*: bool
 
   RespondsTo* = ref object of ASTNode
-    obj: ASTNode
-    name: string
+    obj*: ASTNode
+    name*: string
 
   Require* = ref object of ASTNode
-    string: string
+    string*: string
 
   When* = ref object of ASTNode
-    conds: seq[ASTNode]
-    body: ASTNode
-    exhaustive: bool
+    conds*: seq[ASTNode]
+    body*: ASTNode
+    exhaustive*: bool
 
   Case* = ref object of ASTNode
-    cond: Option[ASTNode]
-    whens: seq[When]
-    `else`: Option[ASTNode]
-    exhaustive: bool
+    cond*: Option[ASTNode]
+    whens*: seq[When]
+    `else`*: Option[ASTNode]
+    exhaustive*: bool
 
   SelectWhen* = object
-    condition, body: ASTNode
+    condition*, body*: ASTNode
 
   Select* = ref object of ASTNode
-    whens: seq[SelectWhen]
-    `else`: Option[ASTNode]
+    whens*: seq[SelectWhen]
+    `else`*: Option[ASTNode]
 
   ImplicitObj* = ref object of ASTNode
 
   Path* = ref object of ASTNode
-    names: seq[string]
-    global: bool
-    visibility: Visibility
+    names*: seq[string]
+    global*: bool
+    visibility*: Visibility
 
   ClassDef* = ref object of ASTNode
-    name: Path
-    body: ASTNode
-    superclass: Option[ASTNode]
-    typeVars: Option[seq[string]]
-    nameLocation: Option[Location]
-    doc: Option[string]
-    splatIndex: Option[int]
-    abstract: bool
-    struct: bool
-    visibility: Visibility
+    name*: Path
+    body*: ASTNode
+    superclass*: Option[ASTNode]
+    typeVars*: Option[seq[string]]
+    nameLocation*: Option[Location]
+    doc*: Option[string]
+    splatIndex*: Option[int]
+    abstract*: bool
+    struct*: bool
+    visibility*: Visibility
 
   ModuleDef* = ref object of ASTNode
-    name: Path
-    body: ASTNode
-    typeVars: Option[seq[string]]
-    splatIndex: Option[int]
-    nameLocation: Option[Location]
-    doc: Option[string]
-    visibility: Visibility
+    name*: Path
+    body*: ASTNode
+    typeVars*: Option[seq[string]]
+    splatIndex*: Option[int]
+    nameLocation*: Option[Location]
+    doc*: Option[string]
+    visibility*: Visibility
 
   AnnotationDef* = ref object of ASTNode
-    name: Path
-    doc: Option[string]
-    nameLocation: Option[Location]
+    name*: Path
+    doc*: Option[string]
+    nameLocation*: Option[Location]
 
   While* = ref object of ASTNode
-    cond, body: ASTNode
+    cond*, body*: ASTNode
 
   Until* = ref object of ASTNode
-    cond, body: ASTNode
+    cond*, body*: ASTNode
 
   Generic* = ref object of ASTNode
-    name: ASTNode
-    typeVars: seq[ASTNode]
-    namedArgs: Option[seq[NamedArgument]]
+    name*: ASTNode
+    typeVars*: seq[ASTNode]
+    namedArgs*: Option[seq[NamedArgument]]
+    suffix*: GenericSuffix
+
+  GenericSuffix* = enum
+    gsNone
+    gsQuestion
+    gsAsterisk
+    gsBracket
 
   TypeDeclaration* = ref object of ASTNode
-    `var`, declaredType: ASTNode
-    value: Option[ASTNode]
+    `var`*, declaredType*: ASTNode
+    value*: Option[ASTNode]
 
   UninitializedVar* = ref object of ASTNode
-    `var`, declaredType: ASTNode
+    `var`*, declaredType*: ASTNode
 
   Rescue* = ref object of ASTNode
-    body: ASTNode
-    types: Option[seq[ASTNode]]
-    name: Option[string]
+    body*: ASTNode
+    types*: Option[seq[ASTNode]]
+    name*: Option[string]
 
   ExceptionHandler* = ref object of ASTNode
-    body: ASTNode
-    rescues: Option[seq[Rescue]]
-    `else`, ensure: Option[ASTNode]
-    implicit, suffix: bool
-    elseLocation, ensureLocation: Option[Location]
+    body*: ASTNode
+    rescues*: Option[seq[Rescue]]
+    `else`*, ensure*: Option[ASTNode]
+    implicit*, suffix*: bool
+    elseLocation*, ensureLocation*: Option[Location]
 
   ProcLiteral* = ref object of ASTNode
-    def: Def
+    def*: Def
 
   ProcPointer* = ref object of ASTNode
-    obj: Option[ASTNode]
-    name: string
-    args: seq[ASTNode]
-    global: bool
+    obj*: Option[ASTNode]
+    name*: string
+    args*: seq[ASTNode]
+    global*: bool
 
   Union* = ref object of ASTNode
-    types: seq[ASTNode]
+    types*: seq[ASTNode]
 
   Self* = ref object of ASTNode
 
   ControlExpression* = ref object of ASTNode
-    exp: Option[ASTNode]
+    exp*: Option[ASTNode]
 
   Return* = ref object of ControlExpression
 
@@ -330,95 +337,95 @@ type
   Next* = ref object of ControlExpression
 
   Yield* = ref object of ASTNode
-    exps: seq[ASTNode]
-    scope: Option[ASTNode]
-    hasParentheses: bool
+    exps*: seq[ASTNode]
+    scope*: Option[ASTNode]
+    hasParentheses*: bool
 
   Include* = ref object of ASTNode
-    name: ASTNode
+    name*: ASTNode
 
   Extend* = ref object of ASTNode
-    name: ASTNode
+    name*: ASTNode
 
   LibDef* = ref object of ASTNode
-    name: string
-    body: ASTNode
-    nameLocation: Option[Location]
-    visibility: Visibility
+    name*: string
+    body*: ASTNode
+    nameLocation*: Option[Location]
+    visibility*: Visibility
 
   FunDef* = ref object of ASTNode
-    name: string
-    args: seq[Arg]
-    returnType, body: Option[ASTNode]
-    realName: string
-    doc: Option[string]
-    `varargs`: bool
+    name*: string
+    args*: seq[Arg]
+    returnType*, body*: Option[ASTNode]
+    realName*: string
+    doc*: Option[string]
+    `varargs`*: bool
 
   TypeDef* = ref object of ASTNode
-    name: string
-    typeSpec: ASTNode
-    nameLocation: Option[Location]
+    name*: string
+    typeSpec*: ASTNode
+    nameLocation*: Option[Location]
 
   CStructOrUnionDef* = ref object of ASTNode
-    name: string
-    body: ASTNode
-    union: bool
+    name*: string
+    body*: ASTNode
+    union*: bool
 
   EnumDef* = ref object of ASTNode
-    name: Path
-    members: seq[ASTNode]
-    baseType: Option[ASTNode]
-    doc: Option[string]
-    visibility: Visibility
+    name*: Path
+    members*: seq[ASTNode]
+    baseType*: Option[ASTNode]
+    doc*: Option[string]
+    visibility*: Visibility
 
   ExternalVar* = ref object of ASTNode
-    name: string
-    typeSpec: ASTNode
-    realName: Option[string]
+    name*: string
+    typeSpec*: ASTNode
+    realName*: Option[string]
 
   Alias* = ref object of ASTNode
-    name: Path
-    value: ASTNode
-    doc: Option[string]
-    visibility: Visibility
+    name*: Path
+    value*: ASTNode
+    doc*: Option[string]
+    visibility*: Visibility
 
   Metaclass* = ref object of ASTNode
-    name: ASTNode
+    name*: ASTNode
 
   Cast* = ref object of ASTNode
-    obj, to: ASTNode
+    obj*, to*: ASTNode
 
   NilableCast* = ref object of ASTNode
-    obj, to: ASTNode
+    obj*, to*: ASTNode
 
   TypeOf* = ref object of ASTNode
-    expressions: seq[ASTNode]
+    expressions*: seq[ASTNode]
 
   Annotation* = ref object of ASTNode
-    path: Path
-    args: seq[ASTNode]
-    namedArgs: Option[seq[NamedArgument]]
-    doc: Option[string]
+    path*: Path
+    args*: seq[ASTNode]
+    namedArgs*: Option[seq[NamedArgument]]
+    doc*: Option[string]
 
   MacroExpression* = ref object of ASTNode
-    exp: ASTNode
-    output: bool
+    exp*: ASTNode
+    output*: bool
 
   MacroLiteral* = ref object of ASTNode
-    value: string
+    value*: string
 
   MacroVerbatim* = ref object of UnaryExpression
 
   MacroIf* = ref object of ASTNode
-    cond, then, `else`: ASTNode
+    cond*, then*, `else`*: ASTNode
 
   MacroFor* = ref object of ASTNode
-    vars: seq[Var]
-    exp, body: ASTNode
+    vars*: seq[Var]
+    exp*, body*: ASTNode
 
   MacroVar* = ref object of ASTNode
-    name: string
-    exps: Option[seq[ASTNode]]
+    name*: string
+    exps*: Option[seq[ASTNode]]
 
   Underscore* = ref object of ASTNode
 
@@ -427,18 +434,18 @@ type
   DoubleSplat* = ref object of UnaryExpression
 
   MagicConstant* = ref object of ASTNode
-    # name: TokenKind
+    # name*: TokenKind
 
   Asm* = ref object of ASTNode
-    text: string
-    outputs: Option[seq[AsmOperand]]
-    inputs: Option[seq[AsmOperand]]
-    clobbers: Option[seq[string]]
-    volatile, alignstack, intel, canThrow: bool
+    text*: string
+    outputs*: Option[seq[AsmOperand]]
+    inputs*: Option[seq[AsmOperand]]
+    clobbers*: Option[seq[string]]
+    volatile*, alignstack*, intel*, canThrow*: bool
 
   AsmOperand* = ref object of ASTNode
-    constraint: string
-    exp: ASTNode
+    constraint*: string
+    exp*: ASTNode
 
   Visibility* = enum
     vPublic
@@ -465,28 +472,28 @@ method `endLocation=`*(self: ASTNode, endLocation: Option[Location]) {.base.} =
 method `endLocation=`*(self: ASTNode, endLocation: Location) {.base.} =
   self.privateEndLocation = endLocation.some
 
-proc at*[T](self: T, location: Option[Location]): T =
+proc at*[T: ASTNode](self: T, location: Option[Location]): T =
   self.location = location
   self
 
-proc at*[T](self: T, location: Location): T =
+proc at*[T: ASTNode](self: T, location: Location): T =
   self.location = location.some
   self
 
-proc at*[T](self: T, node: ASTNode): T =
+proc at*[T: ASTNode](self: T, node: ASTNode): T =
   self.location = node.location
   self.endLocation = node.endLocation
   self
 
-proc atEnd*[T](self: T, endLocation: Option[Location]): T =
+proc atEnd*[T: ASTNode](self: T, endLocation: Option[Location]): T =
   self.endLocation = endLocation
   self
 
-proc atEnd*[T](self: T, endLocation: Location): T =
+proc atEnd*[T: ASTNode](self: T, endLocation: Location): T =
   self.endLocation = endLocation.some
   self
 
-proc atEnd*[T](self: T, node: ASTNode): T =
+proc atEnd*[T: ASTNode](self: T, node: ASTNode): T =
   self.endLocation = node.endLocation
   self
 
@@ -538,7 +545,7 @@ proc toExpressions*(obj: type(nil)): ASTNode =
 
 proc toExpressions*[T](obj: Option[T]): ASTNode =
   if obj.isSome:
-    obj.get.toExpressions
+    toExpressions(obj.get)
   else:
     newNop()
 
@@ -790,7 +797,7 @@ proc newOr*(left, right: ASTNode): Or =
 proc newDef*(
   name: string,
   args: seq[Arg] = @[],
-  body = nil.toExpressions,
+  body = toExpressions(nil),
   receiver = ASTNode.none,
   blockArg = Arg.none,
   returnType = ASTNode.none,
@@ -803,7 +810,7 @@ proc newDef*(
 ): Def = Def(
   name: name,
   args: args,
-  body: body.toExpressions,
+  body: toExpressions(body),
   receiver: receiver,
   blockArg: blockArg,
   returnType: returnType,
@@ -918,8 +925,17 @@ proc newOut*(exp: ASTNode): Out =
 
 # Path
 
-# proc newPath*: Path =
-#   Path()
+proc newPath*(names: seq[string], global = false): Path =
+  Path(names: names, global: global, visibility: vPublic)
+
+proc newPath*(names: varargs[string], global = false): Path =
+  newPath(@names, global)
+
+proc globalPath*(names: seq[string]): Path =
+  newPath(names, true)
+
+proc globalPath*(names: varargs[string]): Path =
+  newPath(names, true)
 
 # ClassDef
 
@@ -948,8 +964,21 @@ proc newOut*(exp: ASTNode): Out =
 
 # Generic
 
-# proc newGeneric*: Generic =
-#   Generic()
+proc newGeneric*(
+  name: ASTNode,
+  typeVars: seq[ASTNode],
+  namedArgs = seq[NamedArgument].none,
+  suffix = gsNone,
+): Generic =
+  Generic(
+    name: name,
+    typeVars: typeVars,
+    namedArgs: namedArgs,
+    suffix: suffix,
+  )
+
+proc newGeneric*(name, typeVar: ASTNode): Generic =
+  newGeneric(name, @[typeVar])
 
 # TypeDeclaration
 
@@ -983,8 +1012,8 @@ proc newOut*(exp: ASTNode): Out =
 
 # Union
 
-# proc newUnion*: Union =
-#   Union()
+proc newUnion*(types: seq[ASTNode]): Union =
+  Union(types: types)
 
 # Self
 
@@ -1174,7 +1203,9 @@ if isMainModule:
   assert arrayLiteral.of.isNone
   let call = newCall(some[ASTNode](arrayLiteral), "==", arrayLiteral)
   assert call.obj.get of ArrayLiteral
-  assert nil.toExpressions of Nop
+  assert toExpressions(nil) of Nop
+  assert toExpressions(ASTNode.none) of Nop
+  assert toExpressions(seq[ASTNode].none) of Nop
 
   let foo1 = newNop().at(newLocation("a", 2, 3));
   let foo2 = newExpressions(@[cast[ASTNode](foo1)])

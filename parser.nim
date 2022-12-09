@@ -1,45 +1,208 @@
-import ast, lexer, options, token
-import std/strformat, std/strutils
+import ast, lexer, location, options, token
+import std/sets, std/strformat, std/strutils
 
-type Parser = ref object of Lexer
-  stopOnDo: bool
-  visibility: Option[Visibility]
-  noTypeDeclaration: int
+type
+  Unclosed = tuple[name: string, location: Location]
+
+  Parser = ref object of Lexer
+    visibility: Option[Visibility]
+    defNest, funNest, typeNest: int
+    wantsDoc: bool
+    blockArgName: Option[string]
+
+    varScopes: seq[HashSet[string]]
+    unclosedStack: seq[Unclosed]
+    callsSuper, callsInitialize, callsPreviousDef, usesBlockArg, isMacroDef, assignsSpecialVar, isConstantAssignment: bool
+    callArgsStartLocations: seq[Location]
+    tempArgCount: int
+    inMacroExpression: bool
+    stopOnYield: int
+    insideCStruct: bool
+    noTypeDeclaration: int
+    consumingHeredocs, insideInterpolation: bool
+    stopOnDo: bool
+    assignedVars: seq[string]
+
+    yields: Option[int]
 
 proc initParser(
   self: Parser,
   s: string,
   # stringPool
-  # varScopes
+  varScopes: seq[HashSet[string]],
   # warnings
 ) =
   self.initLexer(s)
-  # TODO: implement
+  self.varScopes = varScopes
+  self.unclosedStack = @[]
+  self.callsSuper = false
+  self.callsInitialize = false
+  self.callsPreviousDef = false
+  self.usesBlockArg = false
+  self.isMacroDef = false
+  self.assignsSpecialVar = false
+  self.defNest = 0
+  self.funNest = 0
+  self.typeNest = 0
+  self.isConstantAssignment = false
 
-proc newParser*(s: string): Parser =
+  self.callArgsStartLocations = @[]
+  self.tempArgCount = 0
+  self.inMacroExpression = false
+  self.stopOnYield = 0
+  self.insideCStruct = false
+  self.wantsDoc = false
+  self.docEnabled = false
+  self.noTypeDeclaration = 0
+  self.consumingHeredocs = false
+  self.insideInterpolation = false
+
+  self.stopOnDo = false
+  self.assignedVars = @[]
+
+proc newParser*(
+  s: string,
+  # stringPool
+  varScopes = @[initHashSet[string]()],
+): Parser =
   new(result)
-  result.initParser(s)
+  result.initParser(s, varScopes)
 
-proc unexpectedToken(
-  self: Parser,
-  msg = string.none,
-  token = self.token,
-) {.noReturn.} =
-  let tokenStr = if token.kind == tEof: "EOF" else: token.`$`.escape
-  if msg.isSome:
-    self.`raise` fmt"unexpected token: {token_str} ({msg.get})", token
+proc isMultiAssignTarget(exp: ASTNode): bool =
+  if exp of Underscore or
+      exp of Var or
+      exp of InstanceVar or
+      exp of ClassVar or
+      exp of Global or
+      exp of Assign:
+    result = true
+  elif exp of Call:
+    let call = exp.Call
+    result = not call.hasParentheses and (
+      (call.args.len == 0 and call.namedArgs.isNone) or
+        call.name.isSetter or
+        call.name in ["[]", "[]="]
+    )
   else:
-    self.`raise` fmt"unexpected token: {token_str}", token
+    result = false
 
-proc preserveStopOnDo[T](
+proc isMultiAssignMiddle(exp: ASTNode): bool =
+  if exp of Assign:
+    result = true
+  elif exp of Call:
+    result = exp.Call.name.endsWith '='
+  else:
+    result = false
+
+proc nextComesColonSpace(self: Parser): bool =
+  if self.noTypeDeclaration != 0:
+    return false
+
+  let pos = self.currentPos
+  while self.currentChar.isSpaceAscii:
+    discard self.nextCharNoColumnIncrement
+  result = self.currentChar == ':'
+  if result:
+    discard self.nextCharNoColumnIncrement
+    result = self.currentChar.isSpaceAscii
+  self.currentPos = pos
+
+proc checkNotInsideDef[T](
   self: Parser,
-  newValue: bool,
-  fun: proc (self: Parser): T,
+  message: string,
+  fun: proc (): T {.closure},
 ): T =
-  let oldStopOnDo = self.stopOnDo
-  self.stopOnDo = newValue
-  result = fun(self)
-  self.stopOnDo = oldStopOnDo
+  if self.defNest == 0 and self.funNest == 0:
+    result = fun()
+  else:
+    let suffix = if self.isInsideDef: " inside def" else: " inside fun"
+    self.`raise` message & suffix, self.token.lineNumber, self.token.columnNumber
+
+template isInsideDef(self: Parser): bool =
+  self.defNest > 0
+
+template isInsideFun(self: Parser): bool =
+  self.funNest > 0
+
+proc callBlockArgFollows(self: Parser): bool =
+  self.token.kind == tOpAmp and not self.currentChar.isSpaceAscii
+
+proc isStatementEnd(self: Parser): bool =
+  case self.token.kind
+  of tNewline, tOpSemicolon:
+    result = true
+  else:
+    result = self.token.isKeyword(kEnd)
+
+proc checkNotPipeBeforeProcLiteralBody(self: Parser) =
+  if self.token.kind == tOpBar:
+    let location = self.token.location
+    self.nextTokenSkipSpace
+    var msg = "unexpected token: \"|\", proc literals specify their parameters like this: ->("
+    if self.token.kind == tIdent:
+      msg.add self.token.value.`$`
+      msg.add " : Type"
+      self.nextTokenSkipSpaceOrNewline
+      if self.token.kind == tOpComma:
+        msg.add ", ..."
+    else:
+      msg.add "param : Type"
+    msg.add ") { ... }"
+    self.`raise` msg, location
+
+proc isNamedTupleStart(self: Parser): bool =
+  case self.token.kind
+  of tIdent, tConst:
+    result = self.currentChar == ':' and self.peekNextChar != ':'
+  else:
+    result = false
+
+proc isStringLiteralStart(self: Parser): bool =
+  self.token.kind == tDelimiterStart and self.token.delimiterState.kind == dkString
+
+proc checkValidDefName(self: Parser) =
+  if self.token.value.kind == tvKeyword and
+      self.token.value.keyword in {kIsAQuestion, kAs, kAsQuestion, kRespondsToQuestion, kNilQuestion}:
+    self.`raise` fmt"'{self.token.value}' is a pseudo-method and can't be redefined", self.token
+
+proc checkValidDefOpName(self: Parser) =
+  if self.token.kind == tOpBang:
+    self.`raise` "'!' is a pseudo-method and can't be redefined", self.token
+
+proc computeBlockArgYields(self: Parser, blockArg: Arg) =
+  let blockArgRestriction = blockArg.restriction.get(nil)
+  if not blockArgRestriction.isNil and blockArgRestriction of ProcNotation:
+    let inputs = blockArgRestriction.ProcNotation.inputs
+    self.yields = some(if inputs.isSome: inputs.get.len else: 0)
+  else:
+    self.yields = 0.some
+
+proc isInvalidInternalName(keyword: TokenValue): bool =
+  case keyword.kind
+  of tvKeyword:
+    case keyword.keyword
+    of kBegin, kNil, kTrue, kFalse, kYield, kWith, kAbstract,
+       kDef, kMacro, kRequire, kCase, kSelect, kIf, kUnless, kInclude,
+       kExtend, kClass, kStruct, kModule, kEnum, kWhile, kUntil, kReturn,
+       kNext, kBreak, kLib, kFun, kAlias, kPointerof, kSizeof, kOffsetof,
+       kInstanceSizeof, kTypeof, kPrivate, kProtected, kAsm, kOut,
+       kSelf, kIn, kEnd:
+      result = true
+    else:
+      result = false
+  of tvString:
+    case keyword.string
+    of "begin", "nil", "true", "false", "yield", "with", "abstract",
+       "def", "macro", "require", "case", "select", "if", "unless", "include",
+       "extend", "class", "struct", "module", "enum", "while", "until", "return",
+       "next", "break", "lib", "fun", "alias", "pointerof", "sizeof", "offsetof",
+       "instance_sizeof", "typeof", "private", "protected", "asm", "out",
+       "self", "in", "end":
+      result = true
+    else:
+      result = false
+  else:
+    result = false
 
 proc setVisibility[T: ASTNode](self: Parser, node: T) =
   if self.visibility.isSome:
@@ -54,26 +217,128 @@ proc nextComesPlusOrMinus(self: Parser): bool =
 
 proc preserveStopOnDo[T](
   self: Parser,
-  fun: proc (self: Parser): T,
+  newValue: bool,
+  fun: proc (): T {.closure.},
+): T =
+  let oldStopOnDo = self.stopOnDo
+  self.stopOnDo = newValue
+  result = fun()
+  self.stopOnDo = oldStopOnDo
+
+proc preserveStopOnDo[T](
+  self: Parser,
+  fun: proc (): T {.closure.},
 ): T =
   result = self.preserveStopOnDo(false, fun)
 
-proc check(self: Parser, tokenKind: TokenKind) =
-  if tokenKind != self.token.kind:
-    self.`raise` fmt"expecting token '{tokenKind}', not '{self.token}'", self.token
+proc makeNilableType(t: ASTNode): ASTNode =
+  result = newUnion(@[t, globalPath("Nil").at(t)]).at(t)
 
-proc nextComesColonSpace(self: Parser): bool =
-  if self.noTypeDeclaration != 0:
-    return false
+proc makeNilableExpression(t: ASTNode): ASTNode =
+  let t = newGeneric(
+    globalPath("Union").at(t),
+    @[t, globalPath("Nil").at(t)],
+  ).at(t)
+  t.suffix = gsQuestion
+  result = t
 
-  let pos = self.currentPos
-  while self.currentChar.isSpaceAscii:
-    discard self.nextCharNoColumnIncrement
-  result = self.currentChar == ':'
-  if result:
-    discard self.nextCharNoColumnIncrement
-    result = self.currentChar.isSpaceAscii
-  self.currentPos = pos
+proc makePointerType(t: ASTNode): ASTNode =
+  let t = newGeneric(
+    globalPath("Pointer").at(t),
+    @[t],
+  ).at(t)
+  t.suffix = gsAsterisk
+  result = t
+
+proc makeStaticArrayType(t: ASTNode, size: ASTNode): ASTNode =
+  let t = newGeneric(
+    globalPath("StaticArray").at(t),
+    @[t, size],
+  ).at(t)
+  t.suffix = gsBracket
+  result = t
+
+proc makeTupleType(types: seq[ASTNode]): ASTNode =
+  newGeneric(globalPath("Tuple"), types)
+
+proc makeNamedTupleType(
+  namedArgs: Option[seq[NamedArgument]],
+): ASTNode =
+  newGeneric(
+    globalPath("NamedTuple"),
+    @[],
+    namedArgs = namedArgs,
+  )
+
+proc delimiterOrTypeSuffix(self: Parser): bool =
+  case self.token.kind
+  of tOpPeriod:
+    self.nextTokenSkipSpaceOrNewline
+    result = self.token.isKeyword(kClass)
+  of tOpQuestion, tOpStar, tOpStarStar:
+    self.nextTokenSkipSpace
+    result = self.delimiterOrTypeSuffix
+  of tOpMinusGt, tOpBar, tOpComma, tOpEqGt, tNewline, tEof,
+     tOpEq, tOpSemicolon, tOpLparen, tOpRparen, tOpLsquare, tOpRsquare:
+    result = true
+  else:
+    result = false
+
+proc typePathStart(self: Parser): bool =
+  while self.token.kind == tConst:
+    self.nextToken
+    if self.token.kind != tOpColonColon:
+      break
+    self.nextTokenSkipSpaceOrNewline
+
+  self.skipSpace
+  result = self.delimiterOrTypeSuffix
+
+proc typeStart(self: Parser): bool =
+  while self.token.kind == tOpLparen or self.token.kind == tOpLcurly:
+    self.nextTokenSkipSpaceOrNewline
+
+  case self.token.kind
+  of tIdent:
+    if self.isNamedTupleStart:
+      return false
+    if self.token.value == kTypeof:
+      result = true
+    elif self.token.value == kSelf or self.token.value == "self?":
+      self.nextTokenSkipSpace
+      result = self.delimiterOrTypeSuffix
+    else:
+      result = false
+  of tConst:
+    if self.isNamedTupleStart:
+      return false
+    result = self.typePathStart
+  of tOpColonColon:
+    self.nextToken
+    result = self.typePathStart
+  of tUnderscore, tOpMinusGt:
+    result = true
+  of tOpStar:
+    self.nextTokenSkipSpaceOrNewline
+    result = self.typeStart
+  else:
+    result = false
+
+proc isTypeStart(self: Parser, consumeNewlines: bool): bool =
+  self.peekAhead do -> bool:
+    try:
+      if consumeNewlines:
+        self.nextTokenSkipSpaceOrNewline
+      else:
+        self.nextTokenSkipSpace
+
+      result = self.typeStart
+    except:
+      result = false
+
+proc nextToken(self: Parser, node: ASTNode) =
+  node.endLocation = self.tokenEndLocation
+  self.nextToken
 
 proc isEndToken(self: Parser): bool =
   case self.token.kind
@@ -89,13 +354,195 @@ proc isEndToken(self: Parser): bool =
     else:
       result = false
 
+proc canBeAssigned(node: ASTNode): bool =
+  if node of Var or
+      node of InstanceVar or
+      node of ClassVar or
+      node of Path or
+      node of Global or
+      node of Underscore:
+    result = true
+  elif node of Call:
+    let call = node.Call
+    result = (call.obj.isNone and call.args.len == 0 and call.`block`.isNone) or call.name == "[]"
+  else:
+    result = false
+
+proc checkVoidValue(
+  self: Parser,
+  exp: ASTNode,
+  location: Location,
+) =
+  if exp of ControlExpression:
+    self.`raise` "void value expression", location
+
+proc checkVoidExpressionKeyword(self: Parser) =
+  if self.token.value.kind == tvKeyword:
+    case self.token.value.keyword
+    of kBreak, kNext, kReturn:
+      if not self.nextComesColonSpace:
+        self.`raise` "void value expression", self.token, self.token.value.`$`.len
+    else:
+      discard
+
+proc check(self: Parser, tokenKinds: openArray[TokenKind]) =
+  if self.token.kind notin tokenKinds:
+    let tokenKinds = tokenKinds.join ", "
+    self.`raise` fmt"expecting any of these tokens: '{tokenKinds}' (not '{self.token.kind}')", self.token
+
+proc check(self: Parser, tokenKind: TokenKind) =
+  if self.token.kind != tokenKind:
+    self.`raise` fmt"expecting token '{tokenKind}', not '{self.token}'", self.token
+
+proc checkIdent(self: Parser, value: Keyword) =
+  if not self.token.isKeyword(value):
+    self.`raise` fmt"expecting identifier '{value}', not '{self.token}'", self.token
+
+const DefOrMacroCheck1 = [
+  tIdent, tConst, tOpGrave,
+  tOpLtLt, tOpLt, tOpLtEq, tOpEqEq, tOpEqEqEq, tOpBangEq, tOpEqTilde,
+  tOpBangTilde, tOpGtGt, tOpGt, tOpGtEq, tOpPlus, tOpMinus, tOpStar, tOpSlash,
+  tOpSlashSlash, tOpBang, tOpTilde, tOpPercent, tOpAmp, tOpBar, tOpCaret, tOpStarStar,
+  tOpLsquareRsquare, tOpLsquareRsquareEq, tOpLsquareRsquareQuestion, tOpLtEqGt,
+  tOpAmpPlus, tOpAmpMinus, tOpAmpStar, tOpAmpStarStar,
+]
+
+proc consumeDefOrMacroName(self: Parser): string =
+  self.wantsDefOrMacroName = true
+  self.nextTokenSkipSpaceOrNewline
+  self.check DefOrMacroCheck1
+  self.wantsDefOrMacroName = false
+  $self.token
+
+proc consumeDefEqualsSignSkipSpace(self: Parser): bool =
+  self.nextToken
+  if self.token.kind == tOpEq:
+    self.nextTokenSkipSpace
+    result = true
+  else:
+    self.skipSpace
+    result = false
+
+proc withIsolatedVarScope[T](
+  self: Parser,
+  createScope: bool,
+  fun: proc (): T {.closure.},
+): T =
+  if not createScope:
+    return fun()
+
+  self.varScopes.add(initHashSet[string]())
+  result = fun()
+  discard self.varScopes.pop
+
+proc withIsolatedVarScope[T](
+  self: Parser,
+  fun: proc (): T {.closure.},
+): T =
+  self.withIsolatedVarScope(true, fun)
+
+proc withLexicalVarScope[T](
+  self: Parser,
+  fun: proc (): T {.closure.},
+): T =
+  var currentScope = initHashSet[string]()
+  for name in self.varScopes[^1]:
+    currentScope.incl(name)
+  self.varScopes.add currentScope
+  result = fun()
+  discard self.varScopes.pop
+
+proc pushVarName(self: Parser, name: string) =
+  self.varScopes[^1].incl name
+
+proc pushVar(self: Parser, node: ASTNode) =
+  if node of Var:
+    self.pushVarName node.Var.name
+  elif node of Arg:
+    self.pushVarName node.Arg.name
+  elif node of TypeDeclaration:
+    let v = node.TypeDeclaration.`var`
+    if v of Var:
+      self.pushVarName v.Var.name
+    elif v of InstanceVar:
+      self.pushVarName v.InstanceVar.name
+    else:
+      self.`raise` "can't happen"
+  else:
+    discard
+
+proc pushVars(self: Parser, vars: seq[ASTNode]) =
+  for v in vars:
+    self.pushVar v
+
+proc isVarInScope(self: Parser, name: string): bool =
+  result = self.varScopes[^1].contains name
+
+proc open[T](
+  self: Parser,
+  symbol: string,
+  location: Location,
+  fun: proc (): T {.closure.},
+): T =
+  self.unclosedStack.add (symbol, location)
+  result = fun()
+  discard self.unclosedStack.pop
+
+proc open[T](
+  self: Parser,
+  symbol: string,
+  fun: proc (): T {.closure.},
+): T =
+  self.open(symbol, self.token.location, fun)
+
+proc checkIdent(self: Parser): string =
+  self.check tIdent
+  result = $self.token.value
+
+proc checkConst(self: Parser): string =
+  self.check tConst
+  result = $self.token.value
+
+proc unexpectedToken(
+  self: Parser,
+  msg = string.none,
+  token = self.token,
+) {.noReturn.} =
+  let tokenStr = if token.kind == tEof: "EOF" else: token.`$`.escape
+  if msg.isSome:
+    self.`raise` fmt"unexpected token: {token_str} ({msg.get})", token
+  else:
+    self.`raise` fmt"unexpected token: {token_str}", token
+
+proc unexpectedTokenInAtomic(self: Parser) {.noReturn.} =
+  if self.unclosedStack.len > 0:
+    let unclosed = self.unclosedStack[^1]
+    self.`raise` fmt"unterminated {unclosed.name}", unclosed.location
+
+  self.unexpectedToken
+
+proc isVar(self: Parser, name: string): bool =
+  if self.inMacroExpression:
+    return true
+
+  result = name == "self" or self.isVarInScope(name)
+
+proc pushVisibility[T](
+  self: Parser,
+  fun: proc (): T {.closure.},
+): T =
+  let oldVisibility = self.visibility
+  self.visibility = Visibility.none
+  result = fun()
+  self.visibility = oldVisibility
+
 method nextToken(self: Parser) =
   # TODO: implement consumeHeredocs
   procCall nextToken(Lexer self)
 
-proc nextToken(self: Parser, node: ASTNode) =
-  node.endLocation = self.tokenEndLocation
-  self.nextToken
+proc tempArgName(self: Parser): string =
+  result = fmt"__arg{self.tempArgCount}"
+  self.tempArgCount += 1
 
 proc parseVarOrCall(self: Parser): ASTNode =
   # TODO: implement
@@ -144,27 +591,146 @@ proc parseQuestionColon(self: Parser): ASTNode =
   # TODO: implement
   result = self.parseRange
 
-proc parseOpAssign(self: Parser): ASTNode =
-  # TODO: implement
+proc parseOpAssign(
+  self: Parser,
+  allowOps, allowSuffix = true,
+): ASTNode =
+  let
+    doc = self.token.doc
+    location = self.token.location
+    startToken = self.token
+
   result = self.parseQuestionColon
+
+  var allowOps = allowOps
+  while true:
+    let nameLocation = self.token.location
+
+    case self.token.kind
+    of tSpace:
+      self.nextToken
+      continue
+    of tIdent:
+      if not allowSuffix:
+        self.unexpectedToken
+      break
+    of tOpEq:
+      self.slashIsRegex = true
+      # TODO: implement
+      self.unexpectedToken
+    else:
+      if not self.token.kind.isAssignmentOperator:
+        break
+      # TODO: implement
+      self.unexpectedToken
+    allowOps = true
+
+proc parseOpAssignNoControl(
+  self: Parser,
+  allowOps, allowSuffix = true,
+): ASTNode =
+  self.checkVoidExpressionKeyword
+  result = self.parseOpAssign(allowOps, allowSuffix)
+
+proc parseExpressionSuffix(
+  self: Parser,
+  location: Location,
+  fun: proc (exp: ASTNode): ASTNode {.closure.},
+): ASTNode =
+  self.slashIsRegex = true
+  self.nextTokenSkipStatementEnd
+  result = self.parseOpAssignNoControl
+  result = fun(result).at(location).atEnd(result)
 
 proc parseExpression(self: Parser): ASTNode =
   # TODO: implement
   result = self.parseOpAssign
 
 proc parseMultiAssign(self: Parser): ASTNode =
+  let location = self.token.location
+
+  var lhsSplatIndex = int.none
+  if self.token.kind == tOpStar:
+    lhsSplatIndex = 0.some
+    self.nextTokenSkipSpace
+
+  var last = self.parseExpression
+  self.skipSpace
+
+  case self.token.kind
+  of tOpComma:
+    if not last.isMultiAssignTarget:
+      if lhsSplatIndex.isSome:
+        self.unexpectedToken
+      if last of Path:
+        self.`raise` "Multiple assignment is not allowed for constants"
+      self.unexpectedToken
+  of tNewline, tOpSemicolon:
+    if lhsSplatIndex.isSome and not last.isMultiAssignMiddle:
+      self.unexpectedToken
+    if lhsSplatIndex.isNone:
+      return last
+  else:
+    if self.isEndToken:
+      if lhsSplatIndex.isSome and not last.isMultiAssignMiddle:
+        self.unexpectedToken
+      if lhsSplatIndex.isNone:
+        return last
+    else:
+      self.unexpectedToken
+
+  var
+    exps = @[last]
+    i = 0
+    assignIndex = -1
+
+  while self.token.kind == tOpComma:
+    if assignIndex == -1 and last.isMultiAssignMiddle:
+      assignIndex = i
+
+    i += 1
+
+    self.nextTokenSkipSpaceOrNewline
+    if self.token.kind == tOpStar:
+      if lhsSplatIndex.isSome:
+        self.`raise` "splat assignment already specified"
+      lhsSplatIndex = i.some
+      self.nextTokenSkipSpace
+
+    last = self.parseOpAssign(allowOps = false)
+    if assignIndex == -1 and not last.isMultiAssignTarget:
+      self.unexpectedToken
+
+    exps.add last
+    self.skipSpace
+
   # TODO: implement
-  result = self.parseExpression
+  self.unexpectedToken
 
 proc parseExpressionsInternal(self: Parser): ASTNode =
   if self.isEndToken:
     return newNop()
 
-  # TODO: implement
   result = self.parseMultiAssign
 
+  self.slashIsRegex = true
+  self.skipStatementEnd
+
+  if self.isEndToken:
+    return
+
+  var exps = @[result]
+
+  while true:
+    exps.add self.parseMultiAssign
+    self.skipStatementEnd
+    if self.isEndToken:
+      break
+
+  result = toExpressions(exps)
+
 proc parseExpressions(self: Parser): ASTNode =
-  self.preserveStopOnDo do (self: Parser) -> ASTNode:
+  self.preserveStopOnDo do -> ASTNode:
     result = self.parseExpressionsInternal
 
 proc parse*(self: Parser): ASTNode =
@@ -175,9 +741,9 @@ proc parse*(self: Parser): ASTNode =
 proc parse*(
   s: string,
   # stringPool
-  # varScopes
+  varScopes = @[initHashSet[string]()],
 ): ASTNode =
-  newParser(s).parse
+  newParser(s, varScopes).parse
 
 if isMainModule:
   var node = parse("")

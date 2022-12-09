@@ -326,6 +326,26 @@ proc `$`*(self: TokenKind): string =
 
   else: system.`$`(self).toUnderscore[2 .. ^1].toUpperAscii
 
+proc isOperator*(self: TokenKind): bool =
+  result = self in {tOpBang..tOpTilde}
+
+proc isAssignmentOperator*(self: TokenKind): bool =
+  case self
+  of tOpPlusEq, tOpMinusEq, tOpStarEq, tOpSlashEq, tOpSlashSlashEq,
+     tOpPercentEq, tOpBarEq, tOpAmpEq, tOpCaretEq, tOpStarStarEq,
+     tOpLtLtEq, tOpGtGtEq, tOpBarBarEq, tOpAmpAmpEq, tOpAmpPlusEq,
+     tOpAmpMinusEq, tOpAmpStarEq:
+    result = true
+  else:
+    result = false
+
+proc isMagic*(self: TokenKind): bool =
+  case self
+  of tMagicDir, tMagicEndLine, tMagicFile, tMagicLine:
+    result = true
+  else:
+    result = false
+
 proc defaultMacroState*(): MacroState =
   MacroState(
     whitespace: true,
@@ -383,7 +403,7 @@ proc newToken*(): Token =
 proc doc*(self: Token): Option[string] =
   self.docBuffer
 
-proc location*(self: var Token): Location =
+proc location*(self: Token): Location =
   if self.privateLocation.isNone:
     self.privateLocation = newLocation(
       self.filename,
@@ -392,8 +412,34 @@ proc location*(self: var Token): Location =
     ).some
   result = self.privateLocation.get
 
-proc `location=`*(self: var Token, location: Option[Location]) =
+proc `location=`*(self: Token, location: Option[Location]) =
   self.privateLocation = location
+
+proc `==`*(self: TokenValue, c: char): bool =
+  result = self.kind == tvChar and self.char == c
+
+proc `==`*(self: TokenValue, s: string): bool =
+  result = self.kind == tvString and self.string == s
+
+proc `==`*(self: TokenValue, keyword: Keyword): bool =
+  result = self.kind == tvKeyword and self.keyword == keyword
+
+proc isKeyword*(self: Token): bool =
+  result = self.kind == tIdent and self.value.kind == tvKeyword
+
+proc isKeyword*(self: Token, keyword: Keyword): bool =
+  result = self.kind == tIdent and self.value == keyword
+
+proc copyFrom*(self: Token, other: Token) =
+  self.kind = other.kind
+  self.value = other.value
+  self.numberKind = other.numberKind
+  self.lineNumber = other.lineNumber
+  self.columnNumber = other.columnNumber
+  self.filename = other.filename
+  self.delimiterState = other.delimiterState
+  self.macroState = other.macroState
+  self.docBuffer = other.docBuffer
 
 proc `$`*(self: TokenValue): string =
   case self.kind

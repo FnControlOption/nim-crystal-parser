@@ -3,7 +3,7 @@ import error, location, options, token
 import std/macros, std/strformat, std/strutils, std/tables
 
 type Lexer* = ref object of RootObj
-  docEnabled, commentsEnabled, countWhitespace, wantsRaw, slashIsRegex, wantsDefOrMacroName: bool
+  docEnabled*, commentsEnabled, countWhitespace, wantsRaw, slashIsRegex*, wantsDefOrMacroName*: bool
   string: string
   currentPos*: int
   token*, tempToken: Token
@@ -64,7 +64,7 @@ proc newLexer*(s: string): Lexer =
 proc `filename=`*(self: Lexer, filename: string) =
   self.filename = filename
 
-proc `raise`(
+proc `raise`*(
   self: Lexer,
   message: string,
   lineNumber = self.lineNumber,
@@ -92,7 +92,7 @@ proc `raise`*(
     size: size,
   )
 
-proc `raise`(
+proc `raise`*(
   self: Lexer,
   message: string,
   token: Token,
@@ -100,7 +100,7 @@ proc `raise`(
 ) {.noReturn.} =
   self.`raise` message, token, size.some
 
-proc `raise`(
+proc `raise`*(
   self: Lexer,
   message: string,
   location: Location,
@@ -180,7 +180,7 @@ proc isIdentPart(c: char): bool =
 proc isIdent(name: string): bool =
   result = name.len > 0 and name[0].isIdentStart
 
-proc isSetter(name: string): bool =
+proc isSetter*(name: string): bool =
   result = name.isIdent and name.endsWith('=')
 
 proc isIdentPartOrEnd(c: char): bool =
@@ -204,16 +204,16 @@ proc closingChar(c: char): char =
 proc closingChar(self: Lexer): char =
   self.currentChar.closingChar
 
-proc skipSpace(self: Lexer) =
+proc skipSpace*(self: Lexer) =
   while self.token.kind == tSpace:
     self.nextToken
 
-proc skipSpaceOrNewline(self: Lexer) =
+proc skipSpaceOrNewline*(self: Lexer) =
   while self.token.kind == tSpace or
       self.token.kind == tNewline:
     self.nextToken
 
-proc skipStatementEnd(self: Lexer) =
+proc skipStatementEnd*(self: Lexer) =
   while self.token.kind == tSpace or
       self.token.kind == tNewline or
       self.token.kind == tOpSemicolon:
@@ -223,7 +223,7 @@ proc nextTokenSkipSpace*(self: Lexer) =
   self.nextToken
   self.skipSpace
 
-proc nextTokenSkipSpaceOrNewlin*(self: Lexer) =
+proc nextTokenSkipSpaceOrNewline*(self: Lexer) =
   self.nextToken
   self.skipSpaceOrNewline
 
@@ -1141,6 +1141,39 @@ method nextToken(self: Lexer) =
   if resetRegexFlags:
     self.wantsRegex = true
     self.slashIsRegex = false
+
+proc lookahead*[T](
+  self: Lexer,
+  preserveTokenOnFail: bool,
+  fun: proc (): Option[T] {.closure.},
+): Option[T] =
+  let
+    oldPos = self.currentPos
+    oldLine = self.lineNumber
+    oldColumn = self.columnNumber
+  if preserveTokenOnFail:
+    self.tempToken.copyFrom(self.token)
+
+  result = fun()
+  if result.isNone:
+    self.currentPos = oldPos
+    self.lineNumber = oldLine
+    self.columnNumber = oldColumn
+    if preserveTokenOnFail:
+      self.token.copyFrom(self.tempToken)
+
+proc lookahead*[T](
+  self: Lexer,
+  fun: proc (): Option[T] {.closure.},
+): Option[T] =
+  self.lookahead(false, fun)
+
+proc peekAhead*[T](self: Lexer, fun: proc (): T {.closure.}): T =
+  var ret {.noInit.}: T
+  discard self.lookahead(preserveTokenOnFail = true) do -> Option[void]:
+    ret = fun()
+    result = void.none
+  ret
 
 if isMainModule:
   proc assertLexes(
