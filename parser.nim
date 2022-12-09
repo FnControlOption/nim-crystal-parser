@@ -161,8 +161,7 @@ proc isStringLiteralStart(self: Parser): bool =
   self.token.kind == tDelimiterStart and self.token.delimiterState.kind == dkString
 
 proc checkValidDefName(self: Parser) =
-  if self.token.value.kind == tvKeyword and
-      self.token.value.keyword in {kIsAQuestion, kAs, kAsQuestion, kRespondsToQuestion, kNilQuestion}:
+  if self.token.value in {kIsAQuestion, kAs, kAsQuestion, kRespondsToQuestion, kNilQuestion}:
     self.`raise`fmt"'{self.token.value}' is a pseudo-method and can't be redefined", self.token
 
 proc checkValidDefOpName(self: Parser) =
@@ -345,12 +344,8 @@ proc isEndToken(self: Parser): bool =
   of tOpRcurly, tOpRsquare, tOpPercentRcurly, tEof:
     result = true
   else:
-    if self.token.value.kind == tvKeyword:
-      case self.token.value.keyword
-      of kDo, kEnd, kElse, kElsif, kWhen, kIn, kRescue, kEnsure, kThen:
-        result = not self.nextComesColonSpace
-      else:
-        result = false
+    if self.token.value in {kDo, kEnd, kElse, kElsif, kWhen, kIn, kRescue, kEnsure, kThen}:
+      result = not self.nextComesColonSpace
     else:
       result = false
 
@@ -377,13 +372,9 @@ proc checkVoidValue(
     self.`raise`"void value expression", location
 
 proc checkVoidExpressionKeyword(self: Parser) =
-  if self.token.value.kind == tvKeyword:
-    case self.token.value.keyword
-    of kBreak, kNext, kReturn:
-      if not self.nextComesColonSpace:
-        self.`raise`"void value expression", self.token, self.token.value.`$`.len
-    else:
-      discard
+  if self.token.value in {kBreak, kNext, kReturn}:
+    if not self.nextComesColonSpace:
+      self.`raise`"void value expression", self.token, self.token.value.`$`.len
 
 proc check(self: Parser, tokenKinds: openArray[TokenKind]) =
   if self.token.kind notin tokenKinds:

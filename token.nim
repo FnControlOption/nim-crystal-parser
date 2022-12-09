@@ -424,6 +424,15 @@ proc `==`*(self: TokenValue, s: string): bool =
 proc `==`*(self: TokenValue, keyword: Keyword): bool =
   result = self.kind == tvKeyword and self.keyword == keyword
 
+func contains*(x: set[char], y: TokenValue): bool =
+  result = y.kind == tvChar and y.char in x
+
+func contains*(x: openArray[string], y: TokenValue): bool =
+  result = y.kind == tvString and y.string in x
+
+func contains*(x: set[Keyword], y: TokenValue): bool =
+  result = y.kind == tvKeyword and y.keyword in x
+
 proc isKeyword*(self: Token): bool =
   result = self.kind == tIdent and self.value.kind == tvKeyword
 

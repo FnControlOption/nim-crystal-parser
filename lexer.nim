@@ -1192,11 +1192,9 @@ if isMainModule:
       tGlobal,
       tIdent, tInstanceVar,
     }:
-      assert lexer.token.value.kind == tvString
-      assert lexer.token.value.string == s
+      assert lexer.token.value == s
     of tGlobalMatchDataIndex:
-      assert lexer.token.value.kind == tvString
-      assert lexer.token.value.string == s[1..^1]
+      assert lexer.token.value == s[1..^1]
     else:
       discard
 
@@ -1204,8 +1202,7 @@ if isMainModule:
     let lexer = newLexer(s)
     lexer.nextToken
     assert lexer.token.kind == tIdent
-    assert lexer.token.value.kind == tvKeyword
-    assert lexer.token.value.keyword == keyword
+    assert lexer.token.value == keyword
 
   proc assertLexes(
     s: string,
