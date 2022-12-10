@@ -362,16 +362,6 @@ proc default*(T: type MacroState): MacroState =
     heredocs: seq[DelimiterState].none,
   )
 
-proc default*(T: type DelimiterState): DelimiterState =
-  DelimiterState(
-    kind: dkString,
-    nestChar: '\0',
-    endChar: '\0',
-    openCount: 0,
-    heredocIndent: 0,
-    noEscapes: false,
-  )
-
 proc new*(T: type Token): Token =
   Token(
     kind: tEof,
@@ -379,7 +369,7 @@ proc new*(T: type Token): Token =
     numberKind: nkI32,
     lineNumber: 0,
     columnNumber: 0,
-    delimiterState: DelimiterState.default,
+    delimiterState: DelimiterState(),
     macroState: MacroState.default,
     passedBackslashNewline: false,
     raw: "",
