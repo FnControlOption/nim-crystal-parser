@@ -375,6 +375,10 @@ proc symbol(self: Lexer, value: string) =
   if self.wantsRaw:
     self.token.raw = fmt":{value}"
 
+proc nextCharAndSymbol(self: Lexer, value: string) =
+  discard self.nextChar
+  self.symbol value
+
 proc scanNumber(
   self: Lexer,
   start: int,
@@ -407,6 +411,169 @@ proc delimitedPair(
     allowEscapes,
   )
   self.setTokenRawFromStart(start)
+
+proc consumeSymbol(self: Lexer) =
+  let c = self.currentChar
+  case c
+  of ':':
+    self.nextChar tOpColonColon
+  of '+':
+    self.nextCharAndSymbol "+"
+  of '-':
+    self.nextCharAndSymbol "-"
+  of '*':
+    if self.nextChar == '*':
+      self.nextCharAndSymbol "**"
+    else:
+      self.symbol "*"
+  of '/':
+    case self.nextChar
+    of '/':
+      self.nextCharAndSymbol "//"
+    else:
+      self.symbol "/"
+  of '=':
+    case self.nextChar
+    of '=':
+      if self.nextChar == '=':
+        self.nextCharAndSymbol "==="
+      else:
+        self.symbol "=="
+    of '~':
+      self.nextCharAndSymbol "=~"
+    else:
+      self.unknownToken
+  of '!':
+    case self.nextChar
+    of '=':
+      self.nextCharAndSymbol "!="
+    of '~':
+      self.nextCharAndSymbol "!~"
+    else:
+      self.symbol "!"
+  of '<':
+    case self.nextChar
+    of '=':
+      if self.nextChar == '>':
+        self.nextCharAndSymbol "<=>"
+      else:
+        self.symbol "<="
+    of '<':
+      self.nextCharAndSymbol "<<"
+    else:
+      self.symbol "<"
+  of '>':
+    case self.nextChar
+    of '=':
+      self.nextCharAndSymbol ">="
+    of '>':
+      self.nextCharAndSymbol ">>"
+    else:
+      self.symbol ">"
+  of '&':
+    case self.nextChar
+    of '+':
+      self.nextCharAndSymbol "&+"
+    of '-':
+      self.nextCharAndSymbol "&-"
+    of '*':
+      case self.nextChar
+      of '*':
+        self.nextCharAndSymbol "&**"
+      else:
+        self.symbol "&*"
+    else:
+      self.symbol "&"
+  of '|':
+    self.nextCharAndSymbol "|"
+  of '^':
+    self.nextCharAndSymbol "^"
+  of '~':
+    self.nextCharAndSymbol "~"
+  of '%':
+    self.nextCharAndSymbol "%"
+  of '[':
+    if self.nextChar == ']':
+      case self.nextChar
+      of '=':
+        self.nextCharAndSymbol "[]="
+      of '?':
+        self.nextCharAndSymbol "[]?"
+      else:
+        self.symbol "[]"
+    else:
+      self.unknownToken
+  of '"':
+    let
+      line = self.lineNumber
+      column = self.columnNumber
+      start = self.currentPos + 1
+    var s = ""
+    while true:
+      let char1 = self.nextChar
+      case char1
+      of '\\':
+        let char2 = self.nextChar
+        case char2
+        of 'a':
+          s.add '\a'
+        of 'b':
+          s.add '\b'
+        of 'n':
+          s.add '\n'
+        of 'r':
+          s.add '\r'
+        of 't':
+          s.add '\t'
+        of 'v':
+          s.add '\v'
+        of 'f':
+          s.add '\f'
+        of 'e':
+          s.add '\e'
+        of 'x':
+          # TODO: implement consumeStringHexEscape
+          self.unknownToken
+        of 'u':
+          # TODO: implement consumeStringUnicodeEscape
+          self.unknownToken
+        of '0'..'7':
+          # TODO: implement consumeOctalEscape
+          self.unknownToken
+        of '\n':
+          self.incrLineNumber int.none
+          s.add "\n"
+        of '\0':
+          self.`raise`"unterminated quoted symbol", line, column
+        else:
+          s.add char2
+      of '"':
+        break
+      of '\0':
+        self.`raise`"unterminated quoted symbol", line, column
+      else:
+        s.add char1
+
+    self.token.kind = tSymbol
+    self.token.value = TokenValue(kind: tvString, string: s)
+    discard self.nextChar
+    self.setTokenRawFromStart(start - 2)
+  else:
+    if c.isIdentStart:
+      let start = self.currentPos
+      while self.nextChar.isIdentPart:
+        discard
+      if self.currentChar == '?' or
+          (self.currentChar in {'!', '='} and self.peekNextChar != '='):
+        discard self.nextChar
+      self.token.kind = tSymbol
+      self.token.value = TokenValue(
+        kind: tvString,
+        string: self.stringRange(start),
+      )
+      self.setTokenRawFromStart(start - 1)
+    else:
+      self.token.kind = tOpColon
 
 proc consumeVariable(
   self: Lexer,
@@ -788,8 +955,7 @@ method nextToken(self: Lexer) =
     if self.nextChar == ':':
       self.nextChar tOpColonColon
     elif self.wantsSymbol:
-      # TODO: implement consumeSymbol
-      self.unknownToken
+      self.consumeSymbol
     else:
       self.token.kind = tOpColon
   of '~':
