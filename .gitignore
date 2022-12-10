@@ -1,7 +1,3 @@
-/ast
-/bak/
-/lexer
-/location
-/macros
-/parser
-/token
+*
+!*.nim
+!LICENSE
