@@ -198,7 +198,7 @@ type
     of tvKeyword: keyword*: Keyword
     of tvNone: discard
 
-  Token* = ref object
+  Token* = object
     kind*: TokenKind
     value*: TokenValue
     numberKind*: NumberKind
@@ -408,7 +408,7 @@ proc new*(T: type Token): Token =
 proc doc*(self: Token): Option[string] =
   self.docBuffer
 
-proc location*(self: Token): Location =
+proc location*(self: var Token): Location =
   if self.private_location.isNone:
     self.private_location = Location.new(
       self.filename,
@@ -417,7 +417,7 @@ proc location*(self: Token): Location =
     ).some
   result = self.private_location.get
 
-proc `location=`*(self: Token, location: Option[Location]) =
+proc `location=`*(self: var Token, location: Option[Location]) =
   self.private_location = location
 
 proc `==`*(self: TokenValue, c: char): bool =
@@ -444,7 +444,7 @@ proc isKeyword*(self: Token): bool =
 proc isKeyword*(self: Token, keyword: Keyword): bool =
   result = self.kind == tIdent and self.value == keyword
 
-proc copyFrom*(self: Token, other: Token) =
+proc copyFrom*(self: var Token, other: Token) =
   self.kind = other.kind
   self.value = other.value
   self.numberKind = other.numberKind

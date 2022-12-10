@@ -1,6 +1,6 @@
 import std/strformat
 
-type Location* = ref object
+type Location* = object
   lineNumber, columnNumber: int
   filename: string
 
