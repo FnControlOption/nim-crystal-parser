@@ -509,6 +509,13 @@ proc unexpectedToken(
   else:
     self.`raise`fmt"unexpected token: {token_str}", token
 
+proc unexpectedToken(
+  self: Parser,
+  msg: string,
+  token = self.token,
+) {.noreturn.} =
+  self.unexpectedToken(msg.some, token)
+
 proc unexpectedTokenInAtomic(self: Parser) {.noreturn.} =
   if self.unclosedStack.len > 0:
     let unclosed = self.unclosedStack[^1]
@@ -558,7 +565,7 @@ proc parseAtomicWithoutLocation(self: Parser): ASTNode =
   of tIdent:
     if self.token.value.kind == tvKeyword:
       # TODO: implement
-      self.unexpectedToken
+      self.unexpectedToken "unimplemented"
     else:
       result = self.parseVarOrCall
       self.setVisibility result
@@ -612,12 +619,12 @@ proc parseOpAssign(
     of tOpEq:
       self.slashIsRegex = true
       # TODO: implement
-      self.unexpectedToken
+      self.unexpectedToken "unimplemented"
     else:
       if not self.token.kind.isAssignmentOperator:
         break
       # TODO: implement
-      self.unexpectedToken
+      self.unexpectedToken "unimplemented"
     allowOps = true
 
 proc parseOpAssignNoControl(
@@ -700,7 +707,7 @@ proc parseMultiAssign(self: Parser): ASTNode =
     self.skipSpace
 
   # TODO: implement
-  self.unexpectedToken
+  self.unexpectedToken "unimplemented"
 
 proc parseExpressionsInternal(self: Parser): ASTNode =
   if self.isEndToken:
