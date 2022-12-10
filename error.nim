@@ -1,4 +1,6 @@
-import options
+import std/options
+
+export options
 
 type SyntaxError* = object of CatchableError
   lineNumber*, columnNumber*: int

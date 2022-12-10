@@ -1,5 +1,6 @@
-import ast, lexer, location, options, token
-import std/sets, std/strformat, std/strutils
+import
+  std/[options, sets, strformat, strutils],
+  ./ast, ./lexer
 
 type
   Unclosed = tuple[name: string, location: Location]
@@ -25,14 +26,14 @@ type
 
     yields: Option[int]
 
-proc initParser(
+proc init(
   self: Parser,
   s: string,
   # stringPool
   varScopes: seq[HashSet[string]],
   # warnings
 ) =
-  self.initLexer(s)
+  self.Lexer.init(s)
   self.varScopes = varScopes
   self.unclosedStack = @[]
   self.callsSuper = false
@@ -60,13 +61,14 @@ proc initParser(
   self.stopOnDo = false
   self.assignedVars = @[]
 
-proc newParser*(
+proc new*(
+  T: type Parser,
   s: string,
   # stringPool
   varScopes = @[initHashSet[string]()],
 ): Parser =
   new(result)
-  result.initParser(s, varScopes)
+  result.init(s, varScopes)
 
 proc isMultiAssignTarget(exp: ASTNode): bool =
   if exp of Underscore or
@@ -231,40 +233,40 @@ proc preserveStopOnDo[T](
   result = self.preserveStopOnDo(false, fun)
 
 proc makeNilableType(t: ASTNode): ASTNode =
-  result = newUnion(@[t, globalPath("Nil").at(t)]).at(t)
+  result = Union.new(@[t, Path.global("Nil").at(t)]).at(t)
 
 proc makeNilableExpression(t: ASTNode): ASTNode =
-  let t = newGeneric(
-    globalPath("Union").at(t),
-    @[t, globalPath("Nil").at(t)],
+  let t = Generic.new(
+    Path.global("Union").at(t),
+    @[t, Path.global("Nil").at(t)],
   ).at(t)
   t.suffix = gsQuestion
   result = t
 
 proc makePointerType(t: ASTNode): ASTNode =
-  let t = newGeneric(
-    globalPath("Pointer").at(t),
+  let t = Generic.new(
+    Path.global("Pointer").at(t),
     @[t],
   ).at(t)
   t.suffix = gsAsterisk
   result = t
 
 proc makeStaticArrayType(t: ASTNode, size: ASTNode): ASTNode =
-  let t = newGeneric(
-    globalPath("StaticArray").at(t),
+  let t = Generic.new(
+    Path.global("StaticArray").at(t),
     @[t, size],
   ).at(t)
   t.suffix = gsBracket
   result = t
 
 proc makeTupleType(types: seq[ASTNode]): ASTNode =
-  newGeneric(globalPath("Tuple"), types)
+  Generic.new(Path.global("Tuple"), types)
 
 proc makeNamedTupleType(
   namedArgs: Option[seq[NamedArgument]],
 ): ASTNode =
-  newGeneric(
-    globalPath("NamedTuple"),
+  Generic.new(
+    Path.global("NamedTuple"),
     @[],
     namedArgs = namedArgs,
   )
@@ -537,7 +539,7 @@ proc tempArgName(self: Parser): string =
 
 proc parseVarOrCall(self: Parser): ASTNode =
   # TODO: implement
-  result = newCall(ASTNode.none, self.token.value.`$`)
+  result = Call.new(ASTNode.none, self.token.value.`$`)
   self.nextToken
 
 proc parseAtomicWithoutLocation(self: Parser): ASTNode =
@@ -545,10 +547,10 @@ proc parseAtomicWithoutLocation(self: Parser): ASTNode =
   # TODO
   of tNumber:
     self.wantsRegex = false
-    result = newNumberLiteral(self.token.value.string, self.token.numberKind)
+    result = NumberLiteral.new(self.token.value.string, self.token.numberKind)
     self.nextToken result
   of tChar:
-    result = newCharLiteral(self.token.value.char)
+    result = CharLiteral.new(self.token.value.char)
     self.nextToken result
   # TODO
   of tIdent:
@@ -700,7 +702,7 @@ proc parseMultiAssign(self: Parser): ASTNode =
 
 proc parseExpressionsInternal(self: Parser): ASTNode =
   if self.isEndToken:
-    return newNop()
+    return Nop.new
 
   result = self.parseMultiAssign
 
@@ -718,7 +720,7 @@ proc parseExpressionsInternal(self: Parser): ASTNode =
     if self.isEndToken:
       break
 
-  result = toExpressions(exps)
+  result = Expressions.from(exps)
 
 proc parseExpressions(self: Parser): ASTNode =
   self.preserveStopOnDo do -> ASTNode:
@@ -734,7 +736,7 @@ proc parse*(
   # stringPool
   varScopes = @[initHashSet[string]()],
 ): ASTNode =
-  newParser(s, varScopes).parse
+  Parser.new(s, varScopes).parse
 
 if isMainModule:
   var node = parse("")

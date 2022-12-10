@@ -1,7 +1,11 @@
 from ast import NumberKind
-from system as system import `$`
-import location, options
-import std/re, std/strutils
+from system import nil
+
+import
+  std/[options, re, strutils],
+  ./location
+
+export options
 
 type
   Keyword* = enum
@@ -207,7 +211,7 @@ type
     raw*: string
     start*: int
     invalidEscape*: bool
-    privateLocation: Option[Location]
+    private_location: Option[Location]
 
   MacroState* = object
     whitespace*: bool
@@ -346,7 +350,7 @@ proc isMagic*(self: TokenKind): bool =
   else:
     result = false
 
-proc defaultMacroState*(): MacroState =
+proc default*(T: type MacroState): MacroState =
   MacroState(
     whitespace: true,
     nest: 0,
@@ -358,7 +362,7 @@ proc defaultMacroState*(): MacroState =
     heredocs: seq[DelimiterState].none,
   )
 
-proc defaultDelimiterState*(): DelimiterState =
+proc default*(T: type DelimiterState): DelimiterState =
   DelimiterState(
     kind: dkString,
     nestChar: '\0',
@@ -368,7 +372,8 @@ proc defaultDelimiterState*(): DelimiterState =
     allowEscapes: true,
   )
 
-proc newDelimiterState*(
+proc new*(
+  T: type DelimiterState,
   kind: DelimiterKind,
   nest, `end`: char,
   allowEscapes = true,
@@ -385,15 +390,15 @@ proc newDelimiterState*(
       allowEscapes: allowEscapes,
     )
 
-proc newToken*(): Token =
+proc new*(T: type Token): Token =
   Token(
     kind: tEof,
     value: TokenValue(kind: tvNone),
     numberKind: nkI32,
     lineNumber: 0,
     columnNumber: 0,
-    delimiterState: defaultDelimiterState(),
-    macroState: defaultMacroState(),
+    delimiterState: DelimiterState.default,
+    macroState: MacroState.default,
     passedBackslashNewline: false,
     raw: "",
     start: 0,
@@ -404,16 +409,16 @@ proc doc*(self: Token): Option[string] =
   self.docBuffer
 
 proc location*(self: Token): Location =
-  if self.privateLocation.isNone:
-    self.privateLocation = newLocation(
+  if self.private_location.isNone:
+    self.private_location = Location.new(
       self.filename,
       self.lineNumber,
       self.columnNumber,
     ).some
-  result = self.privateLocation.get
+  result = self.private_location.get
 
 proc `location=`*(self: Token, location: Option[Location]) =
-  self.privateLocation = location
+  self.private_location = location
 
 proc `==`*(self: TokenValue, c: char): bool =
   result = self.kind == tvChar and self.char == c
@@ -468,5 +473,5 @@ if isMainModule:
   assert $tNumber == "NUMBER"
   assert $kInstanceSizeof == "instance_sizeof"
   assert $kNilQuestion == "nil?"
-  let token = newToken()
+  let token = Token.new
   assert token.value.kind == tvNone

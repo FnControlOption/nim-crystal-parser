@@ -1,6 +1,10 @@
 from ast import isFloat, NumberKind, StringInterpolation
-import error, location, options, token
-import std/macros, std/strformat, std/strutils, std/tables
+
+import
+  std/[macros, options, strformat, strutils, tables],
+  ./error, ./location, ./token
+
+export error, options, location, token
 
 type Lexer* = ref object of RootObj
   docEnabled*, commentsEnabled, countWhitespace, wantsRaw, slashIsRegex*, wantsDefOrMacroName*: bool
@@ -24,7 +28,7 @@ type Lexer* = ref object of RootObj
 
 method nextToken*(self: Lexer) {.base.}
 
-proc initLexer*(
+proc init*(
   self: Lexer,
   s: string,
   # stringPool
@@ -33,8 +37,8 @@ proc initLexer*(
   # warnings
   self.string = s
   self.currentPos = 0
-  self.token = newToken()
-  self.tempToken = newToken()
+  self.token = Token.new
+  self.tempToken = Token.new
   self.lineNumber = 1
   self.columnNumber = 1
   self.filename = ""
@@ -57,9 +61,9 @@ proc initLexer*(
   self.stackedLineNumber = 1
   self.stackedColumnNumber = 1
 
-proc newLexer*(s: string): Lexer =
+proc new*(T: type Lexer, s: string): Lexer =
   new(result)
-  result.initLexer(s)
+  result.init(s)
 
 proc `filename=`*(self: Lexer, filename: string) =
   self.filename = filename
@@ -268,7 +272,7 @@ proc setTokenRawFromStart(self: Lexer, start: int) =
 
 proc tokenEndLocation*(self: Lexer): Location =
   if self.privateTokenEndLocation.isNone:
-    self.privateTokenEndLocation = newLocation(
+    self.privateTokenEndLocation = Location.new(
       self.filename,
       self.lineNumber,
       self.columnNumber - 1,
@@ -397,7 +401,7 @@ proc delimitedPair(
   if advance:
     discard self.nextChar
   self.token.kind = tDelimiterStart
-  self.token.delimiterState = newDelimiterState(
+  self.token.delimiterState = DelimiterState.new(
     kind,
     stringNest,
     stringEnd,
@@ -712,7 +716,7 @@ method nextToken(self: Lexer) =
           self.nextChar tSymbolArrayStart
           if self.wantsRaw:
             self.token.raw = fmt"%i{c}"
-          self.token.delimiterState = newDelimiterState(dkSymbolArray, c, c.closingChar)
+          self.token.delimiterState = DelimiterState.new(dkSymbolArray, c, c.closingChar)
         else:
           self.token.kind = tOpPercent
       of 'q':
@@ -750,7 +754,7 @@ method nextToken(self: Lexer) =
           self.nextChar tStringArrayStart
           if self.wantsRaw:
             self.token.raw = fmt"%w{c}"
-          self.token.delimiterState = newDelimiterState(dkStringArray, c, c.closingChar)
+          self.token.delimiterState = DelimiterState.new(dkStringArray, c, c.closingChar)
         else:
           self.token.kind = tOpPercent
       of '}':
@@ -1181,7 +1185,7 @@ if isMainModule:
     tokenKind: TokenKind,
     setup: proc (lexer: Lexer) = nil,
   ) =
-    let lexer = newLexer(s)
+    let lexer = Lexer.new(s)
     if not setup.isNil:
       setup(lexer)
     lexer.nextToken
@@ -1199,7 +1203,7 @@ if isMainModule:
       discard
 
   proc assertLexes(s: string, keyword: Keyword) =
-    let lexer = newLexer(s)
+    let lexer = Lexer.new(s)
     lexer.nextToken
     assert lexer.token.kind == tIdent
     assert lexer.token.value == keyword
@@ -1209,7 +1213,7 @@ if isMainModule:
     kind: DelimiterKind,
     nest, `end`: char,
   ) =
-    let lexer = newLexer(s)
+    let lexer = Lexer.new(s)
     lexer.nextToken
     assert lexer.token.kind == tDelimiterStart
     assert lexer.token.delimiterState.kind == kind

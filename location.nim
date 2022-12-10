@@ -4,7 +4,8 @@ type Location* = ref object
   lineNumber, columnNumber: int
   filename: string
 
-proc newLocation*(
+proc new*(
+  T: type Location,
   filename: string,
   lineNumber, columnNumber: int,
 ): Location =
@@ -27,4 +28,4 @@ proc `$`*(self: Location): string =
   fmt"{self.filename}:{self.lineNumber}:{self.columnNumber}"
 
 if isMainModule:
-  echo newLocation("foo", 12, 34)
+  echo Location.new("foo", 12, 34)

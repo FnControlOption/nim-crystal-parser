@@ -1,8 +1,12 @@
-import location, options
+import
+  std/options,
+  ./location
+
+export options, location
 
 type
   ASTNode* = ref object of RootObj
-    privateLocation, privateEndLocation: Option[Location]
+    private_location, private_endLocation: Option[Location]
 
   Nop* = ref object of ASTNode
 
@@ -247,7 +251,7 @@ type
 
   Path* = ref object of ASTNode
     names*: seq[string]
-    global*: bool
+    private_global: bool
     visibility*: Visibility
 
   ClassDef* = ref object of ASTNode
@@ -455,22 +459,22 @@ type
 # ASTNode
 
 method location*(self: ASTNode): Option[Location] {.base.} =
-  self.privateLocation
+  self.private_location
 
 method `location=`*(self: ASTNode, location: Option[Location]) {.base.} =
-  self.privateLocation = location
+  self.private_location = location
 
 method `location=`*(self: ASTNode, location: Location) {.base.} =
-  self.privateLocation = location.some
+  self.private_location = location.some
 
 method endLocation*(self: ASTNode): Option[Location] {.base.} =
-  self.privateEndLocation
+  self.private_endLocation
 
 method `endLocation=`*(self: ASTNode, endLocation: Option[Location]) {.base.} =
-  self.privateEndLocation = endLocation
+  self.private_endLocation = endLocation
 
 method `endLocation=`*(self: ASTNode, endLocation: Location) {.base.} =
-  self.privateEndLocation = endLocation.some
+  self.private_endLocation = endLocation.some
 
 proc at*[T: ASTNode](self: T, location: Option[Location]): T =
   self.location = location
@@ -519,10 +523,10 @@ proc isNop*(self: ASTNode): bool =
   self of Nop
 
 proc isTrueLiteral*(self: ASTNode): bool =
-  self of BoolLiteral and cast[BoolLiteral](self).value
+  self of BoolLiteral and self.BoolLiteral.value
 
 proc isFalseLiteral*(self: ASTNode): bool =
-  self of BoolLiteral and not cast[BoolLiteral](self).value
+  self of BoolLiteral and not self.BoolLiteral.value
 
 method isSingleExpression*(self: ASTNode): Option[ASTNode] {.base.} =
   ASTNode.none
@@ -532,33 +536,33 @@ proc singleExpression*(self: ASTNode): ASTNode =
 
 # Nop
 
-proc newNop*: Nop =
+proc new*(T: type Nop): Nop =
   Nop()
 
 # Expressions
 
-proc newExpressions*(expressions: seq[ASTNode] = @[]): Expressions =
+proc new*(T: type Expressions, expressions: seq[ASTNode] = @[]): Expressions =
   Expressions(expressions: expressions, keyword: ekNone)
 
-proc toExpressions*(obj: type(nil)): ASTNode =
-  newNop()
+proc `from`*(T: type Expressions, obj: type(nil)): ASTNode =
+  Nop.new
 
-proc toExpressions*[T](obj: Option[T]): ASTNode =
+proc `from`*[O](T: type Expressions, obj: Option[O]): ASTNode =
   if obj.isSome:
-    toExpressions(obj.get)
+    Expressions.`from`(obj.get)
   else:
-    newNop()
+    Nop.new
 
-proc toExpressions*(obj: seq[ASTNode]): ASTNode =
+proc `from`*(T: type Expressions, obj: seq[ASTNode]): ASTNode =
   case obj.len:
     of 0:
-      newNop()
+      Nop.new
     of 1:
       obj[0]
     else:
-      newExpressions(obj)
+      Expressions.new(obj)
 
-proc toExpressions*(obj: ASTNode): ASTNode =
+proc `from`*(T: type Expressions, obj: ASTNode): ASTNode =
   obj
 
 proc isEmpty*(self: Expressions): bool =
@@ -571,14 +575,14 @@ proc last*(self: Expressions): ASTNode =
   self.expressions[self.expressions.len - 1]
 
 method location*(self: Expressions): Option[Location] =
-  if self.privateLocation.isSome or self.isEmpty:
-    self.privateLocation
+  if self.private_location.isSome or self.isEmpty:
+    self.private_location
   else:
     self.expressions[0].location
 
 method endLocation*(self: Expressions): Option[Location] =
-  if self.privateEndLocation.isSome or self.isEmpty:
-    self.privateEndLocation
+  if self.private_endLocation.isSome or self.isEmpty:
+    self.private_endLocation
   else:
     self.last.endLocation
 
@@ -590,12 +594,12 @@ method isSingleExpression*(self: Expressions): Option[ASTNode] =
 
 # NilLiteral
 
-proc newNilLiteral*: NilLiteral =
+proc new*(T: type NilLiteral): NilLiteral =
   NilLiteral()
 
 # BoolLiteral
 
-proc newBoolLiteral*(value: bool): BoolLiteral =
+proc new*(T: type BoolLiteral, value: bool): BoolLiteral =
   BoolLiteral(value: value)
 
 # NumberKind
@@ -605,7 +609,8 @@ proc isFloat*(self: NumberKind): bool =
 
 # NumberLiteral
 
-proc newNumberLiteral*(
+proc new*(
+  T: type NumberLiteral,
   value: string,
   kind: NumberKind,
 ): NumberLiteral =
@@ -613,27 +618,28 @@ proc newNumberLiteral*(
 
 # CharLiteral
 
-proc newCharLiteral*(value: char): CharLiteral =
+proc new*(T: type CharLiteral, value: char): CharLiteral =
   CharLiteral(value: value)
 
 # StringLiteral
 
-# proc newStringLiteral*: StringLiteral =
+# proc new*(T: type StringLiteral): StringLiteral =
 #   StringLiteral()
 
 # StringInterpolation
 
-# proc newStringInterpolation*: StringInterpolation =
+# proc new*(T: type StringInterpolation): StringInterpolation =
 #   StringInterpolation()
 
 # SymbolLiteral
 
-# proc newSymbolLiteral*: SymbolLiteral =
+# proc new*(T: type SymbolLiteral): SymbolLiteral =
 #   SymbolLiteral()
 
 # ArrayLiteral
 
-proc newArrayLiteral(
+proc new*(
+  T: type ArrayLiteral,
   elements: seq[ASTNode] = @[],
   `of`, name = ASTNode.none,
 ): ArrayLiteral = ArrayLiteral(
@@ -644,50 +650,51 @@ proc newArrayLiteral(
 
 # HashLiteral
 
-# proc newHashLiteral*: HashLiteral =
+# proc new*(T: type HashLiteral): HashLiteral =
 #   HashLiteral()
 
 # HashEntry
 
-# proc initHashEntry
+# proc init(T: type HashEntry)
 
 # NamedTupleLiteral
 
-# proc newNamedTupleLiteral*: NamedTupleLiteral =
+# proc new*(T: type NamedTupleLiteral): NamedTupleLiteral =
 #   NamedTupleLiteral()
 
 # NamedTupleEntry
 
-# proc initNamedTupleEntry
+# proc init(T: type NamedTupleEntry)
 
 # RangeLiteral
 
-# proc newRangeLiteral*: RangeLiteral =
+# proc new*(T: type RangeLiteral): RangeLiteral =
 #   RangeLiteral()
 
 # RegexLiteral
 
-# proc newRegexLiteral*: RegexLiteral =
+# proc new*(T: type RegexLiteral): RegexLiteral =
 #   RegexLiteral()
 
 # TupleLiteral
 
-# proc newTupleLiteral*: TupleLiteral =
+# proc new*(T: type TupleLiteral): TupleLiteral =
 #   TupleLiteral()
 
 # Var
 
-proc newVar*(name: string): Var =
+proc new*(T: type Var, name: string): Var =
   Var(name: name)
 
 # Block
 
-# proc newBlock*: Block =
+# proc new*(T: type Block): Block =
 #   Block()
 
 # Call
 
-proc newCall*(
+proc new*(
+  T: type Call,
   obj: Option[ASTNode],
   name: string,
   args: seq[ASTNode],
@@ -710,94 +717,97 @@ proc newCall*(
   hasParentheses: false,
 )
 
-proc newCall*(
+proc new*(
+  T: type Call,
   obj: Option[ASTNode],
   name: string,
   args: varargs[ASTNode],
   global = false,
-): Call = newCall(obj, name, @args, global = global)
+): Call = Call.new(obj, name, @args, global = global)
 
-proc globalCall*(
+proc global*(
+  T: type Call,
   name: string,
   args: varargs[ASTNode],
-): Call = newCall(ASTNode.none, name, @args, global = true)
+): Call = Call.new(ASTNode.none, name, @args, global = true)
 
 # NamedArgument
 
-# proc newNamedArgument*: NamedArgument =
+# proc new*(T: type NamedArgument): NamedArgument =
 #   NamedArgument()
 
 # If
 
-# proc newIf*: If =
+# proc new*(T: type If): If =
 #   If()
 
 # Unless
 
-# proc newUnless*: Unless =
+# proc new*(T: type Unless): Unless =
 #   Unless()
 
 # Assign
 
-# proc newAssign*: Assign =
+# proc new*(T: type Assign): Assign =
 #   Assign()
 
 # OpAssign
 
-# proc newOpAssign*: OpAssign =
+# proc new*(T: type OpAssign): OpAssign =
 #   OpAssign()
 
 # MultiAssign
 
-# proc newMultiAssign*: MultiAssign =
+# proc new*(T: type MultiAssign): MultiAssign =
 #   MultiAssign()
 
 # InstanceVar
 
-# proc newInstanceVar*: InstanceVar =
+# proc new*(T: type InstanceVar): InstanceVar =
 #   InstanceVar()
 
 # ReadInstanceVar
 
-# proc newReadInstanceVar*: ReadInstanceVar =
+# proc new*(T: type ReadInstanceVar): ReadInstanceVar =
 #   ReadInstanceVar()
 
 # ClassVar
 
-# proc newClassVar*: ClassVar =
+# proc new*(T: type ClassVar): ClassVar =
 #   ClassVar()
 
 # Global
 
-# proc newGlobal*: Global =
+# proc new*(T: type Global): Global =
 #   Global()
 
 # And
 
-proc newAnd*(left, right: ASTNode): And =
+proc new*(T: type And, left, right: ASTNode): And =
   And(left: left, right: right)
 
 # Or
 
-proc newOr*(left, right: ASTNode): Or =
+proc new*(T: type Or, left, right: ASTNode): Or =
   Or(left: left, right: right)
 
 # Arg
 
-# proc newArg*: Arg =
+# proc new*(T: type Arg): Arg =
 #   Arg()
 
 # ProcNotation
 
-# proc newProcNotation*: ProcNotation =
+# proc new*(T: type ProcNotation): ProcNotation =
 #   ProcNotation()
 
 # Def
 
-proc newDef*(
+proc new*(
+  T: type Def,
   name: string,
   args: seq[Arg] = @[],
-  body = toExpressions(nil),
+  body = Expressions.`from`(nil),
   receiver = ASTNode.none,
   blockArg = Arg.none,
   returnType = ASTNode.none,
@@ -810,7 +820,7 @@ proc newDef*(
 ): Def = Def(
   name: name,
   args: args,
-  body: toExpressions(body),
+  body: Expressions.`from`(body),
   receiver: receiver,
   blockArg: blockArg,
   returnType: returnType,
@@ -831,10 +841,11 @@ proc newDef*(
 
 # Macro
 
-proc newMacro*(
+proc new*(
+  T: type Macro,
   name: string,
   args: seq[Arg] = @[],
-  body = newNop(),
+  body = Nop.new,
   blockArg = Arg.none,
   splatIndex = int.none,
   doubleSplat = Arg.none,
@@ -851,120 +862,127 @@ proc newMacro*(
 
 # Not
 
-proc newNot*(exp: ASTNode): Not =
+proc new*(T: type Not, exp: ASTNode): Not =
   Not(exp: exp)
 
 # PointerOf
 
-proc newPointerOf*(exp: ASTNode): PointerOf =
+proc new*(T: type PointerOf, exp: ASTNode): PointerOf =
   PointerOf(exp: exp)
 
 # SizeOf
 
-proc newSizeOf*(exp: ASTNode): SizeOf =
+proc new*(T: type SizeOf, exp: ASTNode): SizeOf =
   SizeOf(exp: exp)
 
 # InstanceSizeOf
 
-proc newInstanceSizeOf*(exp: ASTNode): InstanceSizeOf =
+proc new*(T: type InstanceSizeOf, exp: ASTNode): InstanceSizeOf =
   InstanceSizeOf(exp: exp)
 
 # Out
 
-proc newOut*(exp: ASTNode): Out =
+proc new*(T: type Out, exp: ASTNode): Out =
   Out(exp: exp)
 
 # OffsetOf
 
-# proc newOffsetOf*: OffsetOf =
+# proc new*(T: type OffsetOf): OffsetOf =
 #   OffsetOf()
 
 # VisibilityModifier
 
-# proc newVisibilityModifier*: VisibilityModifier =
+# proc new*(T: type VisibilityModifier): VisibilityModifier =
 #   VisibilityModifier()
 
 # IsA
 
-# proc newIsA*: IsA =
+# proc new*(T: type IsA): IsA =
 #   IsA()
 
 # RespondsTo
 
-# proc newRespondsTo*: RespondsTo =
+# proc new*(T: type RespondsTo): RespondsTo =
 #   RespondsTo()
 
 # Require
 
-# proc newRequire*: Require =
+# proc new*(T: type Require): Require =
 #   Require()
 
 # When
 
-# proc newWhen*: When =
+# proc new*(T: type When): When =
 #   When()
 
 # Case
 
-# proc newCase*: Case =
+# proc new*(T: type Case): Case =
 #   Case()
 
 # SelectWhen
 
-# proc initSelectWhen
+# proc init(T: type SelectWhen)
 
 # Select
 
-# proc newSelect*: Select =
+# proc new*(T: type Select): Select =
 #   Select()
 
 # ImplicitObj
 
-# proc newImplicitObj*: ImplicitObj =
+# proc new*(T: type ImplicitObj): ImplicitObj =
 #   ImplicitObj()
 
 # Path
 
-proc newPath*(names: seq[string], global = false): Path =
-  Path(names: names, global: global, visibility: vPublic)
+proc global*(self: Path): bool =
+  result = self.private_global
 
-proc newPath*(names: varargs[string], global = false): Path =
-  newPath(@names, global)
+proc `global=`*(self: Path, global: bool) =
+  self.private_global = global
 
-proc globalPath*(names: seq[string]): Path =
-  newPath(names, true)
+proc new*(T: type Path, names: seq[string], global = false): Path =
+  Path(names: names, private_global: global, visibility: vPublic)
 
-proc globalPath*(names: varargs[string]): Path =
-  newPath(names, true)
+proc new*(T: type Path, names: varargs[string], global = false): Path =
+  Path.new(@names, global)
+
+proc global*(T: type Path, names: seq[string]): Path =
+  Path.new(names, true)
+
+proc global*(T: type Path, names: varargs[string]): Path =
+  Path.new(names, true)
 
 # ClassDef
 
-# proc newClassDef*: ClassDef =
+# proc new*(T: type ClassDef): ClassDef =
 #   ClassDef()
 
 # ModuleDef
 
-# proc newModuleDef*: ModuleDef =
+# proc new*(T: type ModuleDef): ModuleDef =
 #   ModuleDef()
 
 # AnnotationDef
 
-# proc newAnnotationDef*: AnnotationDef =
+# proc new*(T: type AnnotationDef): AnnotationDef =
 #   AnnotationDef()
 
 # While
 
-# proc newWhile*: While =
+# proc new*(T: type While): While =
 #   While()
 
 # Until
 
-# proc newUntil*: Until =
+# proc new*(T: type Until): Until =
 #   Until()
 
 # Generic
 
-proc newGeneric*(
+proc new*(
+  T: type Generic,
   name: ASTNode,
   typeVars: seq[ASTNode],
   namedArgs = seq[NamedArgument].none,
@@ -977,192 +995,193 @@ proc newGeneric*(
     suffix: suffix,
   )
 
-proc newGeneric*(name, typeVar: ASTNode): Generic =
-  newGeneric(name, @[typeVar])
+proc new*(T: type Generic, name, typeVar: ASTNode): Generic =
+  Generic.new(name, @[typeVar])
 
 # TypeDeclaration
 
-# proc newTypeDeclaration*: TypeDeclaration =
+# proc new*(T: type TypeDeclaration): TypeDeclaration =
 #   TypeDeclaration()
 
 # UninitializedVar
 
-# proc newUninitializedVar*: UninitializedVar =
+# proc new*(T: type UninitializedVar): UninitializedVar =
 #   UninitializedVar()
 
 # Rescue
 
-# proc newRescue*: Rescue =
+# proc new*(T: type Rescue): Rescue =
 #   Rescue()
 
 # ExceptionHandler
 
-# proc newExceptionHandler*: ExceptionHandler =
+# proc new*(T: type ExceptionHandler): ExceptionHandler =
 #   ExceptionHandler()
 
 # ProcLiteral
 
-# proc newProcLiteral*: ProcLiteral =
+# proc new*(T: type ProcLiteral): ProcLiteral =
 #   ProcLiteral()
 
 # ProcPointer
 
-# proc newProcPointer*: ProcPointer =
+# proc new*(T: type ProcPointer): ProcPointer =
 #   ProcPointer()
 
 # Union
 
-proc newUnion*(types: seq[ASTNode]): Union =
+proc new*(T: type Union, types: seq[ASTNode]): Union =
   Union(types: types)
 
 # Self
 
-# proc newSelf*: Self =
+# proc new*(T: type Self): Self =
 #   Self()
 
 # Return
 
-proc newReturn*(exp = ASTNode.none): Return =
+proc new*(T: type Return, exp = ASTNode.none): Return =
   Return(exp: exp)
 
 # Break
 
-proc newBreak*(exp = ASTNode.none): Break =
+proc new*(T: type Break, exp = ASTNode.none): Break =
   Break(exp: exp)
 
 # Next
 
-proc newNext*(exp = ASTNode.none): Next =
+proc new*(T: type Next, exp = ASTNode.none): Next =
   Next(exp: exp)
 
 # Yield
 
-# proc newYield*: Yield =
+# proc new*(T: type Yield): Yield =
 #   Yield()
 
 # Include
 
-# proc newInclude*: Include =
+# proc new*(T: type Include): Include =
 #   Include()
 
 # Extend
 
-# proc newExtend*: Extend =
+# proc new*(T: type Extend): Extend =
 #   Extend()
 
 # LibDef
 
-# proc newLibDef*: LibDef =
+# proc new*(T: type LibDef): LibDef =
 #   LibDef()
 
 # FunDef
 
-# proc newFunDef*: FunDef =
+# proc new*(T: type FunDef): FunDef =
 #   FunDef()
 
 # TypeDef
 
-# proc newTypeDef*: TypeDef =
+# proc new*(T: type TypeDef): TypeDef =
 #   TypeDef()
 
 # CStructOrUnionDef
 
-# proc newCStructOrUnionDef*: CStructOrUnionDef =
+# proc new*(T: type CStructOrUnionDef): CStructOrUnionDef =
 #   CStructOrUnionDef()
 
 # EnumDef
 
-# proc newEnumDef*: EnumDef =
+# proc new*(T: type EnumDef): EnumDef =
 #   EnumDef()
 
 # ExternalVar
 
-# proc newExternalVar*: ExternalVar =
+# proc new*(T: type ExternalVar): ExternalVar =
 #   ExternalVar()
 
 # Alias
 
-# proc newAlias*: Alias =
+# proc new*(T: type Alias): Alias =
 #   Alias()
 
 # Metaclass
 
-# proc newMetaclass*: Metaclass =
+# proc new*(T: type Metaclass): Metaclass =
 #   Metaclass()
 
 # Cast
 
-# proc newCast*: Cast =
+# proc new*(T: type Cast): Cast =
 #   Cast()
 
 # NilableCast
 
-# proc newNilableCast*: NilableCast =
+# proc new*(T: type NilableCast): NilableCast =
 #   NilableCast()
 
 # TypeOf
 
-# proc newTypeOf*: TypeOf =
+# proc new*(T: type TypeOf): TypeOf =
 #   TypeOf()
 
 # Annotation
 
-# proc newAnnotation*: Annotation =
+# proc new*(T: type Annotation): Annotation =
 #   Annotation()
 
 # MacroExpression
 
-# proc newMacroExpression*: MacroExpression =
+# proc new*(T: type MacroExpression): MacroExpression =
 #   MacroExpression()
 
 # MacroLiteral
 
-# proc newMacroLiteral*: MacroLiteral =
+# proc new*(T: type MacroLiteral): MacroLiteral =
 #   MacroLiteral()
 
 # MacroVerbatim
 
-proc newMacroVerbatim*(exp: ASTNode): MacroVerbatim =
+proc new*(T: type MacroVerbatim, exp: ASTNode): MacroVerbatim =
   MacroVerbatim(exp: exp)
 
 # MacroIf
 
-# proc newMacroIf*: MacroIf =
+# proc new*(T: type MacroIf): MacroIf =
 #   MacroIf()
 
 # MacroFor
 
-# proc newMacroFor*: MacroFor =
+# proc new*(T: type MacroFor): MacroFor =
 #   MacroFor()
 
 # MacroVar
 
-# proc newMacroVar*: MacroVar =
+# proc new*(T: type MacroVar): MacroVar =
 #   MacroVar()
 
 # Underscore
 
-# proc newUnderscore*: Underscore =
+# proc new*(T: type Underscore): Underscore =
 #   Underscore()
 
 # Splat
 
-proc newSplat*(exp: ASTNode): Splat =
+proc new*(T: type Splat, exp: ASTNode): Splat =
   Splat(exp: exp)
 
 # DoubleSplat
 
-proc newDoubleSplat*(exp: ASTNode): DoubleSplat =
+proc new*(T: type DoubleSplat, exp: ASTNode): DoubleSplat =
   DoubleSplat(exp: exp)
 
 # MagicConstant
 
-# proc newMagicConstant*(name: TokenKind): MagicConstant =
+# proc new*(T: type MagicConstant, name: TokenKind): MagicConstant =
 #   MagicConstant(name: name)
 
 # Asm
 
-proc newAsm*(
+proc new*(
+  T: type Asm,
   text: string,
   outputs = seq[AsmOperand].none,
   inputs = seq[AsmOperand].none,
@@ -1184,7 +1203,8 @@ proc newAsm*(
 
 # AsmOperand
 
-proc newAsmOperand*(
+proc new*(
+  T: type AsmOperand,
   constraint: string,
   exp: ASTNode,
 ): AsmOperand = AsmOperand(
@@ -1194,21 +1214,25 @@ proc newAsmOperand*(
 
 if isMainModule:
   assert ASTNode().location.isNone
-  let expressions = newExpressions().at(newLocation("foo", 12, 34))
+
+  let expressions = Expressions.new.at(Location.new("foo", 12, 34))
   expressions.keyword = ekParen
   assert expressions.keyword == ekParen
   assert expressions.expressions.len == 0
   assert expressions.location.get.filename == "foo"
-  let arrayLiteral = newArrayLiteral()
-  assert arrayLiteral.of.isNone
-  let call = newCall(some[ASTNode](arrayLiteral), "==", arrayLiteral)
-  assert call.obj.get of ArrayLiteral
-  assert toExpressions(nil) of Nop
-  assert toExpressions(ASTNode.none) of Nop
-  assert toExpressions(seq[ASTNode].none) of Nop
 
-  let foo1 = newNop().at(newLocation("a", 2, 3));
-  let foo2 = newExpressions(@[cast[ASTNode](foo1)])
+  let arrayLiteral = ArrayLiteral.new
+  assert arrayLiteral.of.isNone
+
+  let call = Call.new(arrayLiteral.ASTNode.some, "==", arrayLiteral)
+  assert call.obj.get of ArrayLiteral
+
+  assert Expressions.`from`(nil) of Nop
+  assert Expressions.`from`(ASTNode.none) of Nop
+  assert Expressions.`from`(seq[ASTNode].none) of Nop
+
+  let foo1 = Nop.new.at(Location.new("a", 2, 3));
+  let foo2 = Expressions.new(@[foo1.ASTNode])
   assert foo2.location.get.filename == "a"
-  discard foo2.at(newLocation("b", 5, 6))
+  discard foo2.at(Location.new("b", 5, 6))
   assert foo2.location.get.filename == "b"
