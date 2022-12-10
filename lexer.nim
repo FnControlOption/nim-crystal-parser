@@ -1,3 +1,5 @@
+{.push hint[XDeclaredButNotUsed]: off.}
+
 from ast import isFloat, NumberKind, StringInterpolation
 
 import
@@ -74,7 +76,7 @@ proc `raise`*(
   lineNumber = self.lineNumber,
   columnNumber = self.columnNumber,
   filename = self.filename,
-) {.noReturn.} =
+) {.noreturn.} =
   raise (ref SyntaxError)(
     msg: message,
     lineNumber: lineNumber,
@@ -87,7 +89,7 @@ proc `raise`*(
   message: string,
   token: Token,
   size = int.none,
-) {.noReturn.} =
+) {.noreturn.} =
   raise (ref SyntaxError)(
     msg: message,
     lineNumber: token.lineNumber,
@@ -101,14 +103,14 @@ proc `raise`*(
   message: string,
   token: Token,
   size: int,
-) {.noReturn.} =
+) {.noreturn.} =
   self.`raise`message, token, size.some
 
 proc `raise`*(
   self: Lexer,
   message: string,
   location: Location,
-) {.noReturn.} =
+) {.noreturn.} =
   self.`raise`message, location.lineNumber, location.columnNumber, location.filename
 
 proc incrColumnNumber(self: Lexer, d = 1) =
@@ -205,9 +207,6 @@ proc closingChar(c: char): char =
   of '{': result = '}'
   else: result = c
 
-proc closingChar(self: Lexer): char =
-  self.currentChar.closingChar
-
 proc skipSpace*(self: Lexer) =
   while self.token.kind == tSpace:
     self.nextToken
@@ -262,7 +261,7 @@ proc charSequence(
 proc charSequence(self: Lexer, tokens: varargs[char]): bool =
   self.charSequence(tokens, columnIncrement = true)
 
-proc unknownToken(self: Lexer) {.noReturn.} =
+proc unknownToken(self: Lexer) {.noreturn.} =
   let escaped = self.currentChar.`$`.escape("'", "'")
   self.`raise`fmt"unknown token: {escaped}"
 
@@ -303,7 +302,7 @@ proc consumeDoc(self: Lexer) =
 
   self.skipComment
 
-  var docBuffer {.noInit.}: string
+  var docBuffer {.noinit.}: string
   if self.token.docBuffer.isSome:
     docBuffer = self.token.docBuffer.get
     docBuffer.add '\n'
@@ -762,7 +761,7 @@ method nextToken(self: Lexer) =
       else:
         self.token.kind = tOpPercent
   of '(': self.nextChar tOpLparen
-  of ')': self.nextChar tOpRParen
+  of ')': self.nextChar tOpRparen
   of '{':
     self.genCheckOp(
       index = 1,
@@ -1173,7 +1172,7 @@ proc lookahead*[T](
   self.lookahead(false, fun)
 
 proc peekAhead*[T](self: Lexer, fun: proc (): T {.closure.}): T =
-  var ret {.noInit.}: T
+  var ret {.noinit.}: T
   discard self.lookahead(preserveTokenOnFail = true) do -> Option[void]:
     ret = fun()
     result = void.none

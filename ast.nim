@@ -6,7 +6,7 @@ export options, location
 
 type
   ASTNode* = ref object of RootObj
-    private_location, private_endLocation: Option[Location]
+    privateLocation, privateEndLocation: Option[Location]
 
   Nop* = ref object of ASTNode
 
@@ -251,7 +251,7 @@ type
 
   Path* = ref object of ASTNode
     names*: seq[string]
-    private_global: bool
+    privateGlobal: bool
     visibility*: Visibility
 
   ClassDef* = ref object of ASTNode
@@ -459,22 +459,22 @@ type
 # ASTNode
 
 method location*(self: ASTNode): Option[Location] {.base.} =
-  self.private_location
+  self.privateLocation
 
 method `location=`*(self: ASTNode, location: Option[Location]) {.base.} =
-  self.private_location = location
+  self.privateLocation = location
 
 method `location=`*(self: ASTNode, location: Location) {.base.} =
-  self.private_location = location.some
+  self.privateLocation = location.some
 
 method endLocation*(self: ASTNode): Option[Location] {.base.} =
-  self.private_endLocation
+  self.privateEndLocation
 
 method `endLocation=`*(self: ASTNode, endLocation: Option[Location]) {.base.} =
-  self.private_endLocation = endLocation
+  self.privateEndLocation = endLocation
 
 method `endLocation=`*(self: ASTNode, endLocation: Location) {.base.} =
-  self.private_endLocation = endLocation.some
+  self.privateEndLocation = endLocation.some
 
 proc at*[T: ASTNode](self: T, location: Option[Location]): T =
   self.location = location
@@ -575,14 +575,14 @@ proc last*(self: Expressions): ASTNode =
   self.expressions[self.expressions.len - 1]
 
 method location*(self: Expressions): Option[Location] =
-  if self.private_location.isSome or self.isEmpty:
-    self.private_location
+  if self.privateLocation.isSome or self.isEmpty:
+    self.privateLocation
   else:
     self.expressions[0].location
 
 method endLocation*(self: Expressions): Option[Location] =
-  if self.private_endLocation.isSome or self.isEmpty:
-    self.private_endLocation
+  if self.privateEndLocation.isSome or self.isEmpty:
+    self.privateEndLocation
   else:
     self.last.endLocation
 
@@ -918,13 +918,13 @@ proc new*(T: type UnaryExpression, exp: ASTNode): T =
 # Path
 
 proc global*(self: Path): bool =
-  result = self.private_global
+  result = self.privateGlobal
 
 proc `global=`*(self: Path, global: bool) =
-  self.private_global = global
+  self.privateGlobal = global
 
 proc new*(T: type Path, names: seq[string], global = false): Path =
-  Path(names: names, private_global: global, visibility: vPublic)
+  Path(names: names, privateGlobal: global, visibility: vPublic)
 
 proc new*(T: type Path, names: varargs[string], global = false): Path =
   Path.new(@names, global)
@@ -1170,6 +1170,7 @@ proc new*(
     exp: exp,
   )
 
+#!nim 
 if isMainModule:
   assert ASTNode().location.isNone
 
@@ -1195,6 +1196,4 @@ if isMainModule:
   discard foo2.at(Location.new("b", 5, 6))
   assert foo2.location.get.filename == "b"
 
-  assert And.new of And
-  assert Not.new of Not
-  assert Return.new of Return
+  assert [And.new, Not.new, Return.new].len == 3

@@ -1,3 +1,5 @@
+{.push hint[XDeclaredButNotUsed]: off.}
+
 import
   std/[options, sets, strformat, strutils],
   ./ast, ./lexer
@@ -500,14 +502,14 @@ proc unexpectedToken(
   self: Parser,
   msg = string.none,
   token = self.token,
-) {.noReturn.} =
+) {.noreturn.} =
   let tokenStr = if token.kind == tEof: "EOF" else: token.`$`.escape
   if msg.isSome:
     self.`raise`fmt"unexpected token: {token_str} ({msg.get})", token
   else:
     self.`raise`fmt"unexpected token: {token_str}", token
 
-proc unexpectedTokenInAtomic(self: Parser) {.noReturn.} =
+proc unexpectedTokenInAtomic(self: Parser) {.noreturn.} =
   if self.unclosedStack.len > 0:
     let unclosed = self.unclosedStack[^1]
     self.`raise`fmt"unterminated {unclosed.name}", unclosed.location

@@ -211,7 +211,7 @@ type
     raw*: string
     start*: int
     invalidEscape*: bool
-    private_location: Option[Location]
+    privateLocation: Option[Location]
 
   MacroState* = object
     whitespace*: bool
@@ -409,16 +409,16 @@ proc doc*(self: Token): Option[string] =
   self.docBuffer
 
 proc location*(self: var Token): Location =
-  if self.private_location.isNone:
-    self.private_location = Location.new(
+  if self.privateLocation.isNone:
+    self.privateLocation = Location.new(
       self.filename,
       self.lineNumber,
       self.columnNumber,
     ).some
-  result = self.private_location.get
+  result = self.privateLocation.get
 
 proc `location=`*(self: var Token, location: Option[Location]) =
-  self.private_location = location
+  self.privateLocation = location
 
 proc `==`*(self: TokenValue, c: char): bool =
   result = self.kind == tvChar and self.char == c
