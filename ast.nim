@@ -642,11 +642,12 @@ proc new*(
   T: type ArrayLiteral,
   elements: seq[ASTNode] = @[],
   `of`, name = ASTNode.none,
-): ArrayLiteral = ArrayLiteral(
-  elements: elements,
-  `of`: `of`,
-  name: name,
-)
+): ArrayLiteral =
+  ArrayLiteral(
+    elements: elements,
+    `of`: `of`,
+    name: name,
+  )
 
 # HashLiteral
 
@@ -702,20 +703,21 @@ proc new*(
   blockArg = ASTNode.none,
   namedArgs = seq[NamedArgument].none,
   global = false,
-): Call = Call(
-  obj: obj,
-  name: name,
-  args: args,
-  `block`: `block`,
-  blockArg: blockArg,
-  namedArgs: namedArgs,
-  global: global,
+): Call =
+  Call(
+    obj: obj,
+    name: name,
+    args: args,
+    `block`: `block`,
+    blockArg: blockArg,
+    namedArgs: namedArgs,
+    global: global,
 
-  nameSize: -1,
-  visibility: vPublic,
-  expansion: false,
-  hasParentheses: false,
-)
+    nameSize: -1,
+    visibility: vPublic,
+    expansion: false,
+    hasParentheses: false,
+  )
 
 proc new*(
   T: type Call,
@@ -723,13 +725,15 @@ proc new*(
   name: string,
   args: varargs[ASTNode],
   global = false,
-): Call = Call.new(obj, name, @args, global = global)
+): Call =
+  Call.new(obj, name, @args, global = global)
 
 proc global*(
   T: type Call,
   name: string,
   args: varargs[ASTNode],
-): Call = Call.new(ASTNode.none, name, @args, global = true)
+): Call =
+  Call.new(ASTNode.none, name, @args, global = true)
 
 # NamedArgument
 
@@ -781,15 +785,10 @@ proc global*(
 # proc new*(T: type Global): Global =
 #   Global()
 
-# And
+# BinaryOp
 
-proc new*(T: type And, left, right: ASTNode): And =
-  And(left: left, right: right)
-
-# Or
-
-proc new*(T: type Or, left, right: ASTNode): Or =
-  Or(left: left, right: right)
+proc new*(T: type BinaryOp, left, right: ASTNode): T =
+  T(left: left, right: right)
 
 # Arg
 
@@ -817,27 +816,28 @@ proc new*(
   splatIndex = int.none,
   doubleSplat = Arg.none,
   freeVars = seq[string].none,
-): Def = Def(
-  name: name,
-  args: args,
-  body: Expressions.`from`(body),
-  receiver: receiver,
-  blockArg: blockArg,
-  returnType: returnType,
-  macroDef: macroDef,
-  yields: yields,
-  abstract: abstract,
-  splatIndex: splatIndex,
-  doubleSplat: doubleSplat,
-  freeVars: freeVars,
+): Def =
+  Def(
+    name: name,
+    args: args,
+    body: Expressions.`from`(body),
+    receiver: receiver,
+    blockArg: blockArg,
+    returnType: returnType,
+    macroDef: macroDef,
+    yields: yields,
+    abstract: abstract,
+    splatIndex: splatIndex,
+    doubleSplat: doubleSplat,
+    freeVars: freeVars,
 
-  visibility: vPublic,
-  callsSuper: false,
-  callsInitialize: false,
-  callsPreviousDef: false,
-  usesBlockArg: false,
-  assignsSpecialVar: false,
-)
+    visibility: vPublic,
+    callsSuper: false,
+    callsInitialize: false,
+    callsPreviousDef: false,
+    usesBlockArg: false,
+    assignsSpecialVar: false,
+  )
 
 # Macro
 
@@ -849,41 +849,22 @@ proc new*(
   blockArg = Arg.none,
   splatIndex = int.none,
   doubleSplat = Arg.none,
-): Macro = Macro(
-  name: name,
-  args: args,
-  body: body,
-  blockArg: blockArg,
-  splatIndex: splatIndex,
-  doubleSplat: doubleSplat,
+): Macro =
+  Macro(
+    name: name,
+    args: args,
+    body: body,
+    blockArg: blockArg,
+    splatIndex: splatIndex,
+    doubleSplat: doubleSplat,
 
-  visibility: vPublic,
-)
+    visibility: vPublic,
+  )
 
-# Not
+# UnaryExpression
 
-proc new*(T: type Not, exp: ASTNode): Not =
-  Not(exp: exp)
-
-# PointerOf
-
-proc new*(T: type PointerOf, exp: ASTNode): PointerOf =
-  PointerOf(exp: exp)
-
-# SizeOf
-
-proc new*(T: type SizeOf, exp: ASTNode): SizeOf =
-  SizeOf(exp: exp)
-
-# InstanceSizeOf
-
-proc new*(T: type InstanceSizeOf, exp: ASTNode): InstanceSizeOf =
-  InstanceSizeOf(exp: exp)
-
-# Out
-
-proc new*(T: type Out, exp: ASTNode): Out =
-  Out(exp: exp)
+proc new*(T: type UnaryExpression, exp: ASTNode): T =
+  T(exp: exp)
 
 # OffsetOf
 
@@ -1038,20 +1019,10 @@ proc new*(T: type Union, types: seq[ASTNode]): Union =
 # proc new*(T: type Self): Self =
 #   Self()
 
-# Return
+# ControlExpression
 
-proc new*(T: type Return, exp = ASTNode.none): Return =
-  Return(exp: exp)
-
-# Break
-
-proc new*(T: type Break, exp = ASTNode.none): Break =
-  Break(exp: exp)
-
-# Next
-
-proc new*(T: type Next, exp = ASTNode.none): Next =
-  Next(exp: exp)
+proc new*(T: type ControlExpression, exp = ASTNode.none): T =
+  T(exp: exp)
 
 # Yield
 
@@ -1138,11 +1109,6 @@ proc new*(T: type Next, exp = ASTNode.none): Next =
 # proc new*(T: type MacroLiteral): MacroLiteral =
 #   MacroLiteral()
 
-# MacroVerbatim
-
-proc new*(T: type MacroVerbatim, exp: ASTNode): MacroVerbatim =
-  MacroVerbatim(exp: exp)
-
 # MacroIf
 
 # proc new*(T: type MacroIf): MacroIf =
@@ -1163,16 +1129,6 @@ proc new*(T: type MacroVerbatim, exp: ASTNode): MacroVerbatim =
 # proc new*(T: type Underscore): Underscore =
 #   Underscore()
 
-# Splat
-
-proc new*(T: type Splat, exp: ASTNode): Splat =
-  Splat(exp: exp)
-
-# DoubleSplat
-
-proc new*(T: type DoubleSplat, exp: ASTNode): DoubleSplat =
-  DoubleSplat(exp: exp)
-
 # MagicConstant
 
 # proc new*(T: type MagicConstant, name: TokenKind): MagicConstant =
@@ -1190,16 +1146,17 @@ proc new*(
   alignstack = false,
   intel = false,
   canThrow = false,
-): Asm = Asm(
-  text: text,
-  outputs: outputs,
-  inputs: inputs,
-  clobbers: clobbers,
-  volatile: volatile,
-  alignstack: alignstack,
-  intel: intel,
-  canThrow: canThrow,
-)
+): Asm =
+  Asm(
+    text: text,
+    outputs: outputs,
+    inputs: inputs,
+    clobbers: clobbers,
+    volatile: volatile,
+    alignstack: alignstack,
+    intel: intel,
+    canThrow: canThrow,
+  )
 
 # AsmOperand
 
@@ -1207,10 +1164,11 @@ proc new*(
   T: type AsmOperand,
   constraint: string,
   exp: ASTNode,
-): AsmOperand = AsmOperand(
-  constraint: constraint,
-  exp: exp,
-)
+): AsmOperand =
+  AsmOperand(
+    constraint: constraint,
+    exp: exp,
+  )
 
 if isMainModule:
   assert ASTNode().location.isNone
@@ -1236,3 +1194,7 @@ if isMainModule:
   assert foo2.location.get.filename == "a"
   discard foo2.at(Location.new("b", 5, 6))
   assert foo2.location.get.filename == "b"
+
+  assert And.new of And
+  assert Not.new of Not
+  assert Return.new of Return
