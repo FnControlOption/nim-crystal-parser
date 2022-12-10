@@ -394,23 +394,73 @@ proc scanNumber(
     string: self.stringRange(start),
   )
 
-proc delimitedPair(
+proc delimiterStart(
   self: Lexer,
-  kind: DelimiterKind,
-  stringNest, stringEnd: char,
+  delimiterState: DelimiterState,
   start: int,
-  allowEscapes, advance = true,
+  advance = true,
 ) =
   if advance:
     discard self.nextChar
   self.token.kind = tDelimiterStart
-  self.token.delimiterState = DelimiterState.new(
-    kind,
-    stringNest,
-    stringEnd,
-    allowEscapes,
-  )
+  self.token.delimiterState = delimiterState
   self.setTokenRawFromStart(start)
+
+proc consumeHeredocStart(self: Lexer) =
+  let start = self.currentPos - 2
+
+  var
+    hasSingleQuote = false
+    foundClosingSingleQuote = false
+
+    c = self.nextChar
+    startHere = self.currentPos
+
+  if c == '\'':
+    hasSingleQuote = true
+    c = self.nextChar
+    startHere = self.currentPos
+
+  if not c.isIdentPart:
+    self.`raise`"heredoc identifier starts with invalid character"
+
+  var endHere = 0
+
+  while true:
+    c = self.nextChar
+    if c == '\r':
+      if self.peekNextChar == '\n':
+        endHere = self.currentPos
+        discard self.nextChar
+        break
+      else:
+        self.`raise`"expecting '\\n' after '\\r'"
+    elif c == '\n':
+      endHere = self.currentPos
+      break
+    elif c.isIdentPart:
+      discard
+    elif c == '\0':
+      self.`raise`"Unexpected EOF on heredoc identifier"
+    elif hasSingleQuote:
+      if c == '\'':
+        foundClosingSingleQuote = true
+        endHere = self.currentPos
+        discard self.nextChar
+        break
+    else:
+      endHere = self.currentPos
+      break
+
+  if hasSingleQuote and not foundClosingSingleQuote:
+    self.`raise`"expecting closing single quote"
+
+  let here = self.stringRange(startHere, endHere)
+  self.delimiterStart DelimiterState(
+    kind: dkHeredoc,
+    heredocId: here,
+    noEscapes: hasSingleQuote,
+  ), start, advance = false
 
 proc consumeSymbol(self: Lexer) =
   let c = self.currentChar
@@ -799,8 +849,7 @@ method nextToken(self: Lexer) =
       of '=':
         self.nextChar tOpLtLtEq
       of '-':
-        # TODO: implement consumeHeredocStart
-        self.unknownToken
+        self.consumeHeredocStart
       else:
         self.token.kind = tOpLtLt
     else:
@@ -858,11 +907,19 @@ method nextToken(self: Lexer) =
     elif self.wantsDefOrMacroName:
       self.token.kind = tOpSlash
     elif self.slashIsRegex:
-      self.delimitedPair dkRegex, '/', '/', start, advance = false
+      self.delimiterStart DelimiterState(
+        kind: dkRegex,
+        nestChar: '/',
+        endChar: '/',
+      ), start, advance = false
     elif c.isSpaceAscii or c == '\0':
       self.token.kind = tOpSlash
     elif self.wantsRegex:
-      self.delimitedPair dkRegex, '/', '/', start, advance = false
+      self.delimiterStart DelimiterState(
+        kind: dkRegex,
+        nestChar: '/',
+        endChar: '/',
+      ), start, advance = false
     else:
       self.token.kind = tOpSlash
   of '%':
@@ -874,7 +931,11 @@ method nextToken(self: Lexer) =
         self.nextChar tOpPercentEq
       of '(', '[', '{', '<', '|':
         let c = self.currentChar
-        self.delimitedPair dkString, c, c.closingChar, start
+        self.delimiterStart DelimiterState(
+          kind: dkString,
+          nestChar: c,
+          endChar: c.closingChar,
+        ), start
       of 'i':
         case self.peekNextChar
         of '(', '{', '[', '<', '|':
@@ -882,35 +943,56 @@ method nextToken(self: Lexer) =
           self.nextChar tSymbolArrayStart
           if self.wantsRaw:
             self.token.raw = fmt"%i{c}"
-          self.token.delimiterState = DelimiterState.new(dkSymbolArray, c, c.closingChar)
+          self.token.delimiterState = DelimiterState(
+            kind: dkSymbolArray,
+            nestChar: c,
+            endChar: c.closingChar,
+          )
         else:
           self.token.kind = tOpPercent
       of 'q':
         case self.peekNextChar
         of '(', '{', '[', '<', '|':
           let c = self.nextChar
-          self.delimitedPair dkString, c, c.closingChar, start, allowEscapes = false
+          self.delimiterStart DelimiterState(
+            kind: dkString,
+            nestChar: c,
+            endChar: c.closingChar,
+            noEscapes: true,
+          ), start
         else:
           self.token.kind = tOpPercent
       of 'Q':
         case self.peekNextChar
         of '(', '{', '[', '<', '|':
           let c = self.nextChar
-          self.delimitedPair dkString, c, c.closingChar, start
+          self.delimiterStart DelimiterState(
+            kind: dkString,
+            nestChar: c,
+            endChar: c.closingChar,
+          ), start
         else:
           self.token.kind = tOpPercent
       of 'r':
         case self.nextChar
         of '(', '{', '[', '<', '|':
           let c = self.currentChar
-          self.delimitedPair dkString, c, c.closingChar, start
+          self.delimiterStart DelimiterState(
+            kind: dkString,
+            nestChar: c,
+            endChar: c.closingChar,
+          ), start
         else:
           self.`raise`"unknown %r char"
       of 'x':
         case self.nextChar
         of '(', '{', '[', '<', '|':
           let c = self.currentChar
-          self.delimitedPair dkCommand, c, c.closingChar, start
+          self.delimiterStart DelimiterState(
+            kind: dkCommand,
+            nestChar: c,
+            endChar: c.closingChar,
+          ), start
         else:
           self.`raise`"unknown %x char"
       of 'w':
@@ -920,7 +1002,11 @@ method nextToken(self: Lexer) =
           self.nextChar tStringArrayStart
           if self.wantsRaw:
             self.token.raw = fmt"%w{c}"
-          self.token.delimiterState = DelimiterState.new(dkStringArray, c, c.closingChar)
+          self.token.delimiterState = DelimiterState(
+            kind: dkStringArray,
+            nestChar: c,
+            endChar: c.closingChar,
+          )
         else:
           self.token.kind = tOpPercent
       of '}':
@@ -1080,9 +1166,17 @@ method nextToken(self: Lexer) =
     if self.wantsDefOrMacroName:
       self.nextChar tOpGrave
     else:
-      self.delimitedPair dkCommand, '`', '`', start
+      self.delimiterStart DelimiterState(
+        kind: dkCommand,
+        nestChar: '`',
+        endChar: '`',
+      ), start
   of '"':
-    self.delimitedPair dkString, '"', '"', start
+    self.delimiterStart DelimiterState(
+      kind: dkString,
+      nestChar: '"',
+      endChar: '"',
+    ), start
   of '0'..'9':
     self.scanNumber start
   of '@':

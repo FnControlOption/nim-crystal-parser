@@ -233,7 +233,7 @@ type
     of dkHeredoc: heredocId*: string
     else: nestChar*, endChar*: char
     openCount*, heredocIndent*: int
-    allowEscapes*: bool
+    noEscapes*: bool
 
 proc toUnderscore(self: string): string =
   self.replacef(re"([A-Z])", "_$1")
@@ -369,26 +369,8 @@ proc default*(T: type DelimiterState): DelimiterState =
     endChar: '\0',
     openCount: 0,
     heredocIndent: 0,
-    allowEscapes: true,
+    noEscapes: false,
   )
-
-proc new*(
-  T: type DelimiterState,
-  kind: DelimiterKind,
-  nest, `end`: char,
-  allowEscapes = true,
-): DelimiterState =
-  case kind
-  of dkHeredoc: assert false
-  else:
-    result = DelimiterState(
-      kind: kind,
-      nestChar: nest,
-      endChar: `end`,
-      openCount: 0,
-      heredocIndent: 0,
-      allowEscapes: allowEscapes,
-    )
 
 proc new*(T: type Token): Token =
   Token(
